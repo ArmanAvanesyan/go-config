@@ -1,7 +1,8 @@
-#!/usr/bin/env sh
-set -eu
+#!/usr/bin/env bash
+set -euo pipefail
 cd "$(dirname "$0")"
 count="${BENCH_COUNT:-10}"
 pattern="${BENCH_PATTERN:-Benchmark}"
+timeout="${BENCH_TIMEOUT:-30m}"
 mkdir -p "results/raw"
-go test ./scenarios -bench="$pattern" -benchmem -count="$count" "$@" | tee "results/raw/bench-$(date +%Y%m%d%H%M%S).txt"
+go test ./scenarios -bench="$pattern" -benchmem -count="$count" -timeout="$timeout" "$@" | tee "results/raw/bench-$(date +%Y%m%d%H%M%S).txt"

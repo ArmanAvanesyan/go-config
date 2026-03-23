@@ -659,6 +659,18 @@ The [`tooling/benchmarks/`](tooling/benchmarks/) module compares go-config with 
 
 Unified benchmark, profile, and coverage summaries: [`tooling/reports/`](tooling/reports/) (`make report-local`, `make report-pr-local`). Schema contracts and coverage targets live under `tooling/reports/schemas/`.
 
+<!-- BENCHMARK_TABLE:START -->
+Representative comparison snapshot (auto-generated from `tooling/reports/output/summary.json`; lower is better for `ns/op`):
+
+| Benchmark point (`ns/op`) | go-config | Viper | Koanf |
+| ------ | ------: | ------: | ------: |
+| `Compare/All/JSON` | `1.00x` (4851) | `3.44x` (16711) | `4.70x` (22784) |
+| `Compare/All/YAML` | `1.00x` (35300) | `1.00x` (35197) | `1.17x` (41474) |
+| `Compare/ParseOnly/YAML` | `1.00x` (33325) | `0.51x` (17066) | `0.56x` (18548) |
+
+`go-config` is normalized to `1.00x`; peer values show slowdown multipliers relative to `go-config` for the same benchmark point. For statistical comparisons across runs, use the `benchstat` workflow in [`tooling/benchmarks/README.md`](tooling/benchmarks/README.md).
+<!-- BENCHMARK_TABLE:END -->
+
 Benchmark automation reference:
 
 | Target | When | Output |
@@ -666,6 +678,7 @@ Benchmark automation reference:
 | `make bench-local-smoke` | Local development quick check | `tooling/benchmarks/results/raw/bench-*.txt` |
 | `make bench-local` | Local full comparative run | `tooling/benchmarks/results/raw/bench-*.txt` |
 | `make report-local` / `make report-pr-local` | After local benchmark/profile/coverage runs | `tooling/reports/output/summary.md`, `tooling/reports/output/pr-comment.md`, `tooling/reports/output/summary.json` |
+| `make bench-readme-refresh-local` | After `make report-local` to refresh README benchmark multipliers | Updates benchmark table block in `README.md` from `tooling/reports/output/summary.json` |
 | [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml) | Scheduled weekly or manual dispatch | GitHub artifact `benchmark-tooling-<run_id>` with raw benchmarks, dashboard JSON, and report outputs |
 
 The main PR CI workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) intentionally does not run the full benchmark suite; use the dedicated benchmark workflow for smoke/full benchmark runs and artifacts.

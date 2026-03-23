@@ -1,4 +1,4 @@
-.PHONY: tidy verify lint test test-race test-cover test-cover-pkg test-cover-integration test-integration bench bench-mem bench-local bench-local-smoke bench-compare-local bench-report-local bench-hyperfine-local bench-yaml-baseline-local wasm-build wasm-build-docker wasm-verify wasm-verify-docker check-wasm report-local report-pr-local coverage-target-report fuzz vet clean build fmt format check help
+.PHONY: tidy verify lint test test-race test-cover test-cover-pkg test-cover-integration test-integration bench bench-mem bench-local bench-local-smoke bench-compare-local bench-report-local bench-hyperfine-local bench-yaml-baseline-local bench-readme-refresh-local wasm-build wasm-build-docker wasm-verify wasm-verify-docker check-wasm report-local report-pr-local coverage-target-report fuzz vet clean build fmt format check help
 
 help:
 	@echo "Targets:"
@@ -20,6 +20,7 @@ help:
 	@echo "  bench-report-local  - extract tooling benchmark dashboard JSON"
 	@echo "  bench-hyperfine-local - run tooling hyperfine orchestration"
 	@echo "  bench-yaml-baseline-local - capture YAML cold/warm baseline snapshots"
+	@echo "  bench-readme-refresh-local - refresh README benchmark table from summary.json"
 	@echo "  wasm-build         - build Rust/WASM artifacts and copy into extensions/wasm (host rustc)"
 	@echo "  wasm-build-docker  - same as wasm-build inside rust:1.94-bookworm (matches CI)"
 	@echo "  wasm-verify        - wasm-build + diff only the four checked-in .wasm binaries vs HEAD"
@@ -108,6 +109,9 @@ bench-hyperfine-local:
 
 bench-yaml-baseline-local:
 	$(MAKE) -C tooling/benchmarks bench-yaml-baseline
+
+bench-readme-refresh-local:
+	python3 tooling/benchmarks/scripts/update_readme_benchmark_table.py
 
 # Rust `make -C rust all` copies only these; verify drift on binaries only (not .go sources under the same trees).
 WASM_VERIFY_PATHS := \

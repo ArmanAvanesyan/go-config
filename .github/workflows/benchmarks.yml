@@ -49,9 +49,11 @@ jobs:
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.full_run }}" == "true" ]]; then
             echo "count=10" >> "$GITHUB_OUTPUT"
             echo "mode=full" >> "$GITHUB_OUTPUT"
+            echo "timeout=60m" >> "$GITHUB_OUTPUT"
           else
             echo "count=1" >> "$GITHUB_OUTPUT"
             echo "mode=smoke" >> "$GITHUB_OUTPUT"
+            echo "timeout=15m" >> "$GITHUB_OUTPUT"
           fi
           pattern="${{ github.event.inputs.bench_pattern }}"
           if [[ -z "$pattern" ]]; then
@@ -62,7 +64,7 @@ jobs:
       - name: Run tooling benchmarks
         run: |
           cd tooling/benchmarks
-          BENCH_COUNT="${{ steps.bench_cfg.outputs.count }}" BENCH_PATTERN="${{ steps.bench_cfg.outputs.pattern }}" bash ./run.sh
+          BENCH_COUNT="${{ steps.bench_cfg.outputs.count }}" BENCH_PATTERN="${{ steps.bench_cfg.outputs.pattern }}" BENCH_TIMEOUT="${{ steps.bench_cfg.outputs.timeout }}" bash ./run.sh
 
       - name: Extract benchmark dashboard JSON
         run: |
@@ -75,6 +77,7 @@ jobs:
           python3 tooling/reports/scripts/build_report.py
           python3 tooling/reports/scripts/render_markdown.py
           python3 tooling/reports/scripts/render_pr_comment.py
+          python3 tooling/benchmarks/scripts/update_readme_benchmark_table.py
 
       - name: Upload benchmark and report artifacts
         if: always()
@@ -99,6 +102,7 @@ jobs:
             echo "- Mode: \`${{ steps.bench_cfg.outputs.mode }}\`"
             echo "- BENCH_COUNT: \`${{ steps.bench_cfg.outputs.count }}\`"
             echo "- BENCH_PATTERN: \`${{ steps.bench_cfg.outputs.pattern }}\`"
+            echo "- BENCH_TIMEOUT: \`${{ steps.bench_cfg.outputs.timeout }}\`"
             echo "- Artifacts: \`benchmark-tooling-${{ github.run_id }}\`"
             echo
             if [[ -f tooling/reports/output/pr-comment.md ]]; then
