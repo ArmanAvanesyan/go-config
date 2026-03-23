@@ -8,7 +8,7 @@ Thank you for considering contributing to this project. We welcome bug reports, 
 
 Before writing any code, read:
 
-- [`docs/conventions.md`](./docs/conventions.md) — naming rules, API design, export requirements, dependency policy, logging rules, context rules, and security expectations.
+- [`docs/engineering-standards.md`](./docs/engineering-standards.md) — branch workflow, naming rules, API design, export requirements, dependency policy, logging rules, context rules, and security expectations.
 - [`docs/testing.md`](./docs/testing.md) — table-driven tests, golden tests, integration tests, benchmarks, fuzz tests, and coverage targets.
 
 ---
@@ -68,9 +68,9 @@ make check             # fmt + vet + lint + test-race (full pre-commit pass)
 ## Code Style
 
 - Use `gofmt` formatting (`make fmt`).
-- Follow Go naming conventions as defined in [`docs/conventions.md`](./docs/conventions.md).
+- Follow Go naming conventions as defined in [`docs/engineering-standards.md`](./docs/engineering-standards.md).
 - All exported symbols must have godoc comments ending with a period.
-- Keep dependencies minimal — see the dependency rules in `docs/conventions.md`.
+- Keep dependencies minimal — see the dependency rules in [`docs/engineering-standards.md`](./docs/engineering-standards.md).
 
 ---
 
@@ -108,7 +108,7 @@ This project favors:
 - Few, well-justified external dependencies.
 - Small, focused libraries over large frameworks.
 
-When proposing a new dependency, explain why the standard library or an existing dependency is insufficient, and consider the impact on downstream users and build times. See the full dependency rules in [`docs/conventions.md`](./docs/conventions.md).
+When proposing a new dependency, explain why the standard library or an existing dependency is insufficient, and consider the impact on downstream users and build times. See the full dependency rules in [`docs/engineering-standards.md`](./docs/engineering-standards.md).
 
 ---
 

@@ -1,6 +1,6 @@
 // Package rustpolicy provides a config.Validator that runs policy/validation
 // rules in a WASM module (e.g. compiled from rust/validators/config-policy).
-// See docs/wasm-validation-abi.md for the validation ABI.
+// See docs/architecture.md#validation-wasm-abi for the validation ABI.
 package rustpolicy
 
 import (
