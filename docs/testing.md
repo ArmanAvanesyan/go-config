@@ -108,6 +108,7 @@ When refactoring internal packages, treat these contracts as part of the test su
 ## Performance and benchmarks
 
 Benchmark tooling and reports live under `tooling/benchmarks`.
+CI benchmark automation lives in [`.github/workflows/benchmarks.yml`](../.github/workflows/benchmarks.yml) (scheduled and manual runs with artifact upload).
 
 Quick commands:
 

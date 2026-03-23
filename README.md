@@ -659,6 +659,17 @@ The [`tooling/benchmarks/`](tooling/benchmarks/) module compares go-config with 
 
 Unified benchmark, profile, and coverage summaries: [`tooling/reports/`](tooling/reports/) (`make report-local`, `make report-pr-local`). Schema contracts and coverage targets live under `tooling/reports/schemas/`.
 
+Benchmark automation reference:
+
+| Target | When | Output |
+| ------ | ---- | ------ |
+| `make bench-local-smoke` | Local development quick check | `tooling/benchmarks/results/raw/bench-*.txt` |
+| `make bench-local` | Local full comparative run | `tooling/benchmarks/results/raw/bench-*.txt` |
+| `make report-local` / `make report-pr-local` | After local benchmark/profile/coverage runs | `tooling/reports/output/summary.md`, `tooling/reports/output/pr-comment.md`, `tooling/reports/output/summary.json` |
+| [`.github/workflows/benchmarks.yml`](.github/workflows/benchmarks.yml) | Scheduled weekly or manual dispatch | GitHub artifact `benchmark-tooling-<run_id>` with raw benchmarks, dashboard JSON, and report outputs |
+
+The main PR CI workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) intentionally does not run the full benchmark suite; use the dedicated benchmark workflow for smoke/full benchmark runs and artifacts.
+
 ---
 
 ## Contributing

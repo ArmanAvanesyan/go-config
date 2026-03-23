@@ -1,0 +1,109 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_run:
+        description: "Run full benchmark count (10) instead of smoke (1)"
+        required: false
+        type: boolean
+        default: false
+      bench_pattern:
+        description: "Benchmark regex pattern (default: Benchmark)"
+        required: false
+        type: string
+        default: Benchmark
+  schedule:
+    - cron: "0 5 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  benchmarks:
+    name: Run benchmark suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Resolve benchmark settings
+        id: bench_cfg
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.full_run }}" == "true" ]]; then
+            echo "count=10" >> "$GITHUB_OUTPUT"
+            echo "mode=full" >> "$GITHUB_OUTPUT"
+          else
+            echo "count=1" >> "$GITHUB_OUTPUT"
+            echo "mode=smoke" >> "$GITHUB_OUTPUT"
+          fi
+          pattern="${{ github.event.inputs.bench_pattern }}"
+          if [[ -z "$pattern" ]]; then
+            pattern="Benchmark"
+          fi
+          echo "pattern=$pattern" >> "$GITHUB_OUTPUT"
+
+      - name: Run tooling benchmarks
+        run: |
+          cd tooling/benchmarks
+          BENCH_COUNT="${{ steps.bench_cfg.outputs.count }}" BENCH_PATTERN="${{ steps.bench_cfg.outputs.pattern }}" ./run.sh
+
+      - name: Extract benchmark dashboard JSON
+        run: |
+          cd tooling/benchmarks
+          latest_raw="$(ls -1t results/raw/bench-*.txt | head -n 1)"
+          python3 ./scripts/extract_go_bench.py "$latest_raw" "results/dashboards/summary-ci.json"
+
+      - name: Build unified reports
+        run: |
+          python3 tooling/reports/scripts/build_report.py
+          python3 tooling/reports/scripts/render_markdown.py
+          python3 tooling/reports/scripts/render_pr_comment.py
+
+      - name: Upload benchmark and report artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: benchmark-tooling-${{ github.run_id }}
+          path: |
+            tooling/benchmarks/results/raw/bench-*.txt
+            tooling/benchmarks/results/dashboards/*.json
+            tooling/reports/output/summary.json
+            tooling/reports/output/summary.md
+            tooling/reports/output/pr-comment.md
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Publish run summary
+        if: always()
+        run: |
+          {
+            echo "## Benchmark workflow summary"
+            echo
+            echo "- Mode: \`${{ steps.bench_cfg.outputs.mode }}\`"
+            echo "- BENCH_COUNT: \`${{ steps.bench_cfg.outputs.count }}\`"
+            echo "- BENCH_PATTERN: \`${{ steps.bench_cfg.outputs.pattern }}\`"
+            echo "- Artifacts: \`benchmark-tooling-${{ github.run_id }}\`"
+            echo
+            if [[ -f tooling/reports/output/pr-comment.md ]]; then
+              cat tooling/reports/output/pr-comment.md
+            else
+              echo "_No PR comment summary was generated._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
