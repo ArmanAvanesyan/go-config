@@ -70,7 +70,6 @@ func TestWatcher_MissingPath(t *testing.T) {
 }
 
 func TestWatcher_WithDebounce(t *testing.T) {
-	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "c.yaml")
 	if err := os.WriteFile(path, []byte("a: 1"), 0644); err != nil {

@@ -12,7 +12,6 @@ import (
 )
 
 func TestOSEventsBackend_Linux_StartStop(t *testing.T) {
-	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
 	if err := os.WriteFile(path, []byte("x: 1"), 0644); err != nil {
@@ -42,7 +41,6 @@ func TestOSEventsBackend_Linux_StartStop(t *testing.T) {
 }
 
 func TestOSEventsBackend_Linux_DetectsChange(t *testing.T) {
-	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
 	if err := os.WriteFile(path, []byte("x: 1"), 0644); err != nil {
@@ -69,8 +67,16 @@ func TestOSEventsBackend_Linux_DetectsChange(t *testing.T) {
 	if err := os.WriteFile(path, []byte("x: 2"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(200 * time.Millisecond)
-
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		mu.Lock()
+		n := reloads
+		mu.Unlock()
+		if n >= 1 {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
 	mu.Lock()
 	n := reloads
 	mu.Unlock()
