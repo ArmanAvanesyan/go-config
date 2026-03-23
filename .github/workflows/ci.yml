@@ -32,22 +32,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.94.0
-          targets: wasm32-wasip1
-
-      - name: Rust toolchain version
-        run: rustc -Vv
-
       - name: Verify go.mod tidy
         run: |
           go mod tidy
           git diff --exit-code
 
+      # Host rustc can differ from rust:1.94-bookworm (LLVM/patch); WASM must match the image used for commits.
       - name: Verify WASM artifacts are up to date
-        run: make wasm-verify
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/ws" \
+            -w /ws \
+            rust:1.94-bookworm \
+            bash -lc 'export PATH="/usr/local/cargo/bin:$PATH" && apt-get update && apt-get install -y --no-install-recommends make git ca-certificates && rustup target add wasm32-wasip1 && make wasm-verify'
 
       - name: Build
         run: go build ./...

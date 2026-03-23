@@ -20,16 +20,20 @@ Before writing any code, read:
 - Go 1.26+
 - Git
 
-**Rust / WASM (when changing `rust/` parsers or validators):** CI uses **Rust 1.94.0** with target **`wasm32-wasip1`** (see [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)). After editing Rust sources, rebuild checked-in artifacts and confirm no drift:
+**Rust / WASM (when changing `rust/` parsers or validators):** CI runs **`make wasm-verify` inside Docker `rust:1.94-bookworm`** (see [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)). **A host `rustc` (including WSL) often produces different `.wasm` bytes** than that image, so `make wasm-verify` may fail locally even when the repo is correct—use the Docker target instead:
 
 ```bash
-rustup toolchain install 1.94.0
-rustup target add wasm32-wasip1 --toolchain 1.94.0
-make wasm-build    # copies .wasm into extensions/wasm/...
-make wasm-verify   # must pass: no diff vs committed binaries
+make wasm-verify-docker   # same toolchain as CI; must pass before you push WASM changes
 ```
 
-You can also build in Docker, e.g. `rust:1.94-bookworm` with `PATH=/usr/local/cargo/bin:$PATH` and `make -C rust all` from the repo root mounted at `/ws`.
+Equivalent manual command:
+
+```bash
+docker run --rm -v "$PWD:/ws" -w /ws rust:1.94-bookworm bash -lc \
+  'export PATH="/usr/local/cargo/bin:$PATH" && apt-get update && apt-get install -y --no-install-recommends make git ca-certificates && rustup target add wasm32-wasip1 && make wasm-verify'
+```
+
+After editing Rust sources, `make wasm-build-docker` refreshes checked-in artifacts; then commit if `git status` shows updates under `extensions/wasm/`.
 
 **Clone and install dependencies:**
 

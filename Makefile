@@ -1,4 +1,4 @@
-.PHONY: tidy verify lint test test-race test-cover test-cover-pkg test-cover-integration test-integration bench bench-mem bench-local bench-local-smoke bench-compare-local bench-report-local bench-hyperfine-local bench-yaml-baseline-local wasm-build wasm-verify check-wasm report-local report-pr-local coverage-target-report fuzz vet clean build fmt format check help
+.PHONY: tidy verify lint test test-race test-cover test-cover-pkg test-cover-integration test-integration bench bench-mem bench-local bench-local-smoke bench-compare-local bench-report-local bench-hyperfine-local bench-yaml-baseline-local wasm-build wasm-build-docker wasm-verify wasm-verify-docker check-wasm report-local report-pr-local coverage-target-report fuzz vet clean build fmt format check help
 
 help:
 	@echo "Targets:"
@@ -20,8 +20,10 @@ help:
 	@echo "  bench-report-local  - extract tooling benchmark dashboard JSON"
 	@echo "  bench-hyperfine-local - run tooling hyperfine orchestration"
 	@echo "  bench-yaml-baseline-local - capture YAML cold/warm baseline snapshots"
-	@echo "  wasm-build         - build Rust/WASM artifacts and copy into extensions/wasm"
-	@echo "  wasm-verify        - rebuild Rust/WASM artifacts and fail on artifact drift only"
+	@echo "  wasm-build         - build Rust/WASM artifacts and copy into extensions/wasm (host rustc)"
+	@echo "  wasm-build-docker  - same as wasm-build inside rust:1.94-bookworm (matches CI)"
+	@echo "  wasm-verify        - wasm-build + git diff; host rustc may differ from committed .wasm"
+	@echo "  wasm-verify-docker - same as wasm-verify in rust:1.94-bookworm (use this before push)"
 	@echo "  check-wasm         - alias for wasm-verify"
 	@echo "  report-local      - build unified tooling report (json + markdown)"
 	@echo "  report-pr-local   - build unified tooling PR comment markdown"
@@ -110,8 +112,23 @@ bench-yaml-baseline-local:
 wasm-build:
 	$(MAKE) -C rust all
 
+# Rebuild with the same toolchain image as CI (host rustc often emits different .wasm bytes).
+wasm-build-docker:
+	docker run --rm \
+		-v "$(CURDIR):/ws" \
+		-w /ws \
+		rust:1.94-bookworm \
+		bash -lc 'export PATH="/usr/local/cargo/bin:$$PATH" && apt-get update -qq && apt-get install -y --no-install-recommends make ca-certificates >/dev/null && rustup target add wasm32-wasip1 && make wasm-build'
+
 wasm-verify: wasm-build
 	git diff --exit-code -- extensions/wasm/parser extensions/wasm/validator
+
+wasm-verify-docker:
+	docker run --rm \
+		-v "$(CURDIR):/ws" \
+		-w /ws \
+		rust:1.94-bookworm \
+		bash -lc 'export PATH="/usr/local/cargo/bin:$$PATH" && apt-get update -qq && apt-get install -y --no-install-recommends make git ca-certificates >/dev/null && rustup target add wasm32-wasip1 && make wasm-verify'
 
 check-wasm: wasm-verify
 
