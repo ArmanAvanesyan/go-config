@@ -4,6 +4,7 @@ package fsnotify
 
 import (
 	"context"
+	"encoding/binary"
 	"sync"
 	"time"
 
@@ -27,6 +28,14 @@ func (b *osEventsBackend) start(ctx context.Context, paths []string, debounce ti
 			_ = unix.Close(fd)
 			return nil, nil, err
 		}
+	}
+	var closeOnce sync.Once
+	closeFD := func() error {
+		var closeErr error
+		closeOnce.Do(func() {
+			closeErr = unix.Close(fd)
+		})
+		return closeErr
 	}
 
 	done := make(chan struct{})
@@ -56,7 +65,7 @@ func (b *osEventsBackend) start(ctx context.Context, paths []string, debounce ti
 
 	go func() {
 		defer close(done)
-		defer func() { _ = unix.Close(fd) }()
+		defer func() { _ = closeFD() }()
 		buf := make([]byte, unix.SizeofInotifyEvent*128+unix.NAME_MAX+1)
 		for {
 			n, err := unix.Read(fd, buf)
@@ -78,25 +87,20 @@ func (b *osEventsBackend) start(ctx context.Context, paths []string, debounce ti
 				if i+unix.SizeofInotifyEvent > n {
 					break
 				}
-				raw := buf[i : i+unix.SizeofInotifyEvent]
-				wd := int(raw[0]) | int(raw[1])<<8 | int(raw[2])<<16 | int(raw[3])<<24
-				mask := uint32(raw[4]) | uint32(raw[5])<<8 | uint32(raw[6])<<16 | uint32(raw[7])<<24
-				_ = wd
+				// struct inotify_event: wd, mask, cookie, len (name bytes follow; len includes padding).
+				mask := binary.LittleEndian.Uint32(buf[i+4 : i+8])
 				if mask&(unix.IN_MODIFY|unix.IN_ATTRIB|unix.IN_CLOSE_WRITE|unix.IN_CREATE) != 0 {
 					scheduleReload()
 				}
-				evLen := int(raw[8]) | int(raw[9])<<8 | int(raw[10])<<16 | int(raw[11])<<24
-				if evLen <= 0 {
-					evLen = unix.SizeofInotifyEvent
-				}
-				i += evLen
+				nameLen := int(binary.LittleEndian.Uint32(buf[i+12 : i+16]))
+				i += unix.SizeofInotifyEvent + nameLen
 			}
 		}
 	}()
 
 	stop := func() error {
 		stopTimer()
-		return unix.Close(fd)
+		return closeFD()
 	}
 	return stop, done, nil
 }
