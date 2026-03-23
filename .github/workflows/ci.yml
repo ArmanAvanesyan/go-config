@@ -37,14 +37,9 @@ jobs:
           go mod tidy
           git diff --exit-code
 
-      # Host rustc can differ from rust:1.94-bookworm (LLVM/patch); WASM must match the image used for commits.
+      # Build WASM in rust:1.94-bookworm; run git diff on the runner (git in-container often fails on bind mounts).
       - name: Verify WASM artifacts are up to date
-        run: |
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE:/ws" \
-            -w /ws \
-            rust:1.94-bookworm \
-            bash -lc 'export PATH="/usr/local/cargo/bin:$PATH" && apt-get update && apt-get install -y --no-install-recommends make git ca-certificates && rustup target add wasm32-wasip1 && make wasm-verify'
+        run: make wasm-verify-docker
 
       - name: Build
         run: go build ./...

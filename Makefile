@@ -23,7 +23,7 @@ help:
 	@echo "  wasm-build         - build Rust/WASM artifacts and copy into extensions/wasm (host rustc)"
 	@echo "  wasm-build-docker  - same as wasm-build inside rust:1.94-bookworm (matches CI)"
 	@echo "  wasm-verify        - wasm-build + diff only the four checked-in .wasm binaries vs HEAD"
-	@echo "  wasm-verify-docker - same as wasm-verify in rust:1.94-bookworm (use this before push)"
+	@echo "  wasm-verify-docker - wasm-build-docker then git diff vs HEAD (matches CI)"
 	@echo "  check-wasm         - alias for wasm-verify"
 	@echo "  report-local      - build unified tooling report (json + markdown)"
 	@echo "  report-pr-local   - build unified tooling PR comment markdown"
@@ -130,12 +130,9 @@ wasm-build-docker:
 wasm-verify: wasm-build
 	git diff --exit-code HEAD -- $(WASM_VERIFY_PATHS)
 
-wasm-verify-docker:
-	docker run --rm \
-		-v "$(CURDIR):/ws" \
-		-w /ws \
-		rust:1.94-bookworm \
-		bash -lc 'export PATH="/usr/local/cargo/bin:$$PATH" && apt-get update -qq && apt-get install -y --no-install-recommends make git ca-certificates >/dev/null && rustup target add wasm32-wasip1 && make wasm-verify'
+# Build in Docker, then git diff on the host — git inside rust:1.94-bookworm often does not see /ws as a repo.
+wasm-verify-docker: wasm-build-docker
+	git diff --exit-code HEAD -- $(WASM_VERIFY_PATHS)
 
 check-wasm: wasm-verify
 

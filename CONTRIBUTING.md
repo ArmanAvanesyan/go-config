@@ -20,17 +20,20 @@ Before writing any code, read:
 - Go 1.26+
 - Git
 
-**Rust / WASM (when changing `rust/` parsers or validators):** CI runs **`make wasm-verify` inside Docker `rust:1.94-bookworm`** (see [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)). **A host `rustc` (including WSL) often produces different `.wasm` bytes** than that image, so `make wasm-verify` may fail locally even when the repo is correct—use the Docker target instead:
+**Rust / WASM (when changing `rust/` parsers or validators):** CI runs **`make wasm-verify-docker`** — WASM is built in **`rust:1.94-bookworm`**, then **`git diff`** runs on the host (see [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)). **A host `rustc` (including WSL) often produces different `.wasm` bytes** than that image, so `make wasm-verify` may fail locally even when the repo is correct—use the Docker target instead:
 
 ```bash
 make wasm-verify-docker   # same toolchain as CI; must pass before you push WASM changes
 ```
 
-Equivalent manual command:
+Equivalent manual sequence (`make wasm-build` in Docker, then diff on your machine):
 
 ```bash
-docker run --rm -v "$PWD:/ws" -w /ws rust:1.94-bookworm bash -lc \
-  'export PATH="/usr/local/cargo/bin:$PATH" && apt-get update && apt-get install -y --no-install-recommends make git ca-certificates && rustup target add wasm32-wasip1 && make wasm-verify'
+make wasm-build-docker
+git diff --exit-code HEAD -- extensions/wasm/parser/rusttoml/toml_parser.wasm \
+  extensions/wasm/parser/rustyaml/yaml_parser.wasm \
+  extensions/wasm/parser/rustjson/json_parser.wasm \
+  extensions/wasm/validator/rustpolicy/policy.wasm
 ```
 
 After editing Rust sources, `make wasm-build-docker` refreshes checked-in artifacts; then commit if `git status` shows updates under `extensions/wasm/`.
