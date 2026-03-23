@@ -62,7 +62,7 @@ jobs:
       - name: Run tooling benchmarks
         run: |
           cd tooling/benchmarks
-          BENCH_COUNT="${{ steps.bench_cfg.outputs.count }}" BENCH_PATTERN="${{ steps.bench_cfg.outputs.pattern }}" ./run.sh
+          BENCH_COUNT="${{ steps.bench_cfg.outputs.count }}" BENCH_PATTERN="${{ steps.bench_cfg.outputs.pattern }}" bash ./run.sh
 
       - name: Extract benchmark dashboard JSON
         run: |
