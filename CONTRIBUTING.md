@@ -20,6 +20,17 @@ Before writing any code, read:
 - Go 1.26+
 - Git
 
+**Rust / WASM (when changing `rust/` parsers or validators):** CI uses **Rust 1.94.0** with target **`wasm32-wasip1`** (see [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)). After editing Rust sources, rebuild checked-in artifacts and confirm no drift:
+
+```bash
+rustup toolchain install 1.94.0
+rustup target add wasm32-wasip1 --toolchain 1.94.0
+make wasm-build    # copies .wasm into extensions/wasm/...
+make wasm-verify   # must pass: no diff vs committed binaries
+```
+
+You can also build in Docker, e.g. `rust:1.94-bookworm` with `PATH=/usr/local/cargo/bin:$PATH` and `make -C rust all` from the repo root mounted at `/ws`.
+
 **Clone and install dependencies:**
 
 ```bash

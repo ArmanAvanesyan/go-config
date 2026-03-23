@@ -47,12 +47,7 @@ jobs:
           git diff --exit-code
 
       - name: Verify WASM artifacts are up to date
-        run: |
-          make -C rust all
-          if ! git diff --exit-code -- extensions/wasm/parser extensions/wasm/validator; then
-            echo "::warning::WASM artifacts differ after rebuild on this runner; reporting drift without failing CI."
-            git diff -- extensions/wasm/parser extensions/wasm/validator
-          fi
+        run: make wasm-verify
 
       - name: Build
         run: go build ./...
