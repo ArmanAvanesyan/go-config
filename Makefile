@@ -22,7 +22,7 @@ help:
 	@echo "  bench-yaml-baseline-local - capture YAML cold/warm baseline snapshots"
 	@echo "  wasm-build         - build Rust/WASM artifacts and copy into extensions/wasm (host rustc)"
 	@echo "  wasm-build-docker  - same as wasm-build inside rust:1.94-bookworm (matches CI)"
-	@echo "  wasm-verify        - wasm-build + git diff; host rustc may differ from committed .wasm"
+	@echo "  wasm-verify        - wasm-build + diff only the four checked-in .wasm binaries vs HEAD"
 	@echo "  wasm-verify-docker - same as wasm-verify in rust:1.94-bookworm (use this before push)"
 	@echo "  check-wasm         - alias for wasm-verify"
 	@echo "  report-local      - build unified tooling report (json + markdown)"
@@ -109,6 +109,13 @@ bench-hyperfine-local:
 bench-yaml-baseline-local:
 	$(MAKE) -C tooling/benchmarks bench-yaml-baseline
 
+# Rust `make -C rust all` copies only these; verify drift on binaries only (not .go sources under the same trees).
+WASM_VERIFY_PATHS := \
+	extensions/wasm/parser/rusttoml/toml_parser.wasm \
+	extensions/wasm/parser/rustyaml/yaml_parser.wasm \
+	extensions/wasm/parser/rustjson/json_parser.wasm \
+	extensions/wasm/validator/rustpolicy/policy.wasm
+
 wasm-build:
 	$(MAKE) -C rust all
 
@@ -121,7 +128,7 @@ wasm-build-docker:
 		bash -lc 'export PATH="/usr/local/cargo/bin:$$PATH" && apt-get update -qq && apt-get install -y --no-install-recommends make ca-certificates >/dev/null && rustup target add wasm32-wasip1 && make wasm-build'
 
 wasm-verify: wasm-build
-	git diff --exit-code -- extensions/wasm/parser extensions/wasm/validator
+	git diff --exit-code HEAD -- $(WASM_VERIFY_PATHS)
 
 wasm-verify-docker:
 	docker run --rm \

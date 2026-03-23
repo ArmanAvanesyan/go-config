@@ -35,6 +35,8 @@ docker run --rm -v "$PWD:/ws" -w /ws rust:1.94-bookworm bash -lc \
 
 After editing Rust sources, `make wasm-build-docker` refreshes checked-in artifacts; then commit if `git status` shows updates under `extensions/wasm/`.
 
+`wasm-verify` only diffs the four copied binaries (`toml_parser.wasm`, `yaml_parser.wasm`, `json_parser.wasm`, `rustpolicy/policy.wasm`) against `HEAD`, so unrelated Go changes in `extensions/wasm/` won’t fail the check.
+
 **Clone and install dependencies:**
 
 ```bash
