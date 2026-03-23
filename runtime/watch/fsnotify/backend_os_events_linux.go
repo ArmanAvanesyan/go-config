@@ -28,6 +28,14 @@ func (b *osEventsBackend) start(ctx context.Context, paths []string, debounce ti
 			return nil, nil, err
 		}
 	}
+	var closeOnce sync.Once
+	closeFD := func() error {
+		var closeErr error
+		closeOnce.Do(func() {
+			closeErr = unix.Close(fd)
+		})
+		return closeErr
+	}
 
 	done := make(chan struct{})
 	var timerMu sync.Mutex
@@ -56,7 +64,7 @@ func (b *osEventsBackend) start(ctx context.Context, paths []string, debounce ti
 
 	go func() {
 		defer close(done)
-		defer func() { _ = unix.Close(fd) }()
+		defer func() { _ = closeFD() }()
 		buf := make([]byte, unix.SizeofInotifyEvent*128+unix.NAME_MAX+1)
 		for {
 			n, err := unix.Read(fd, buf)
@@ -89,14 +97,14 @@ func (b *osEventsBackend) start(ctx context.Context, paths []string, debounce ti
 				if evLen <= 0 {
 					evLen = unix.SizeofInotifyEvent
 				}
-				i += evLen
+				i += unix.SizeofInotifyEvent + evLen
 			}
 		}
 	}()
 
 	stop := func() error {
 		stopTimer()
-		return unix.Close(fd)
+		return closeFD()
 	}
 	return stop, done, nil
 }
