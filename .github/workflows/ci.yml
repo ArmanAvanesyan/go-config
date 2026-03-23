@@ -33,7 +33,7 @@ jobs:
           cache: true
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.94.0
         with:
           targets: wasm32-wasip1
 
