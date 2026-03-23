@@ -60,11 +60,21 @@ endif
 
 # Coverage profile for the whole module
 test-cover test-cover-pkg:
+ifeq ($(OS),Windows_NT)
 	powershell -NoProfile -Command "$$pkgs = go list ./... | Where-Object { $$_ -notmatch '/examples/' -and $$_ -notmatch '/testutil$$' -and $$_ -notmatch '/extensions/wasm/parser/rustjson$$' -and $$_ -notmatch '/extensions/wasm/parser/rusttoml$$' }; go test $$pkgs -cover -coverprofile=coverage.out"
+else
+	@pkgs="$$(go list ./... | grep -Ev '/examples/|/testutil$$|/extensions/wasm/parser/rustjson$$|/extensions/wasm/parser/rusttoml$$')"; \
+	go test $$pkgs -cover -coverprofile=coverage.out
+endif
 
 # Coverage profile for integration-tagged tests/packages.
 test-cover-integration:
+ifeq ($(OS),Windows_NT)
 	powershell -NoProfile -Command "$$pkgs = go list ./... | Where-Object { $$_ -notmatch '/examples/' -and $$_ -notmatch '/testutil$$' -and $$_ -notmatch '/extensions/wasm/parser/rustjson$$' -and $$_ -notmatch '/extensions/wasm/parser/rusttoml$$' }; go test -tags=integration $$pkgs -cover -coverprofile=coverage.integration.out"
+else
+	@pkgs="$$(go list ./... | grep -Ev '/examples/|/testutil$$|/extensions/wasm/parser/rustjson$$|/extensions/wasm/parser/rusttoml$$')"; \
+	go test -tags=integration $$pkgs -cover -coverprofile=coverage.integration.out
+endif
 
 # Integration tests (requires //go:build integration in test files)
 test-integration:
