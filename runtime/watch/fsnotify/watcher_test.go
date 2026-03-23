@@ -10,7 +10,6 @@ import (
 )
 
 func TestWatcher_StartStop(t *testing.T) {
-	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
 	if err := os.WriteFile(path, []byte("x: 1"), 0644); err != nil {
