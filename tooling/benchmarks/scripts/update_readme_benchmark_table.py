@@ -42,6 +42,8 @@ def _row(point: str, lookup: dict[tuple[str, str], float]) -> str:
             return "-"
         if peer is None:
             return "-"
+        # Time ratio relative to go-config:
+        # 1.00x = same, >1.00x = slower than go-config, <1.00x = faster.
         mult = peer / gc if gc else 0.0
         return f"`{mult:.2f}x` ({_format_ns(peer)})"
 
@@ -62,7 +64,7 @@ def build_section(summary: dict) -> str:
         _row("Compare/All/YAML", lookup),
         _row("Compare/ParseOnly/YAML", lookup),
         "",
-        "`go-config` is normalized to `1.00x`; peer values show slowdown multipliers relative to `go-config` for the same benchmark point. For statistical comparisons across runs, use the `benchstat` workflow in [`tooling/benchmarks/README.md`](tooling/benchmarks/README.md).",
+        "`go-config` is normalized to `1.00x`; peer values are time ratios (`peer_ns/op / go-config_ns/op`) for the same benchmark point, so values above `1.00x` indicate the peer is slower and values below `1.00x` indicate the peer is faster. For statistical comparisons across runs, use the `benchstat` workflow in [`tooling/benchmarks/README.md`](tooling/benchmarks/README.md).",
         END_MARKER,
     ]
     return "\n".join(lines)

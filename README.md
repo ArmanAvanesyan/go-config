@@ -668,7 +668,7 @@ Representative comparison snapshot (auto-generated from `tooling/reports/output/
 | `Compare/All/YAML` | `1.00x` (35300) | `1.00x` (35197) | `1.17x` (41474) |
 | `Compare/ParseOnly/YAML` | `1.00x` (33325) | `0.51x` (17066) | `0.56x` (18548) |
 
-`go-config` is normalized to `1.00x`; peer values show slowdown multipliers relative to `go-config` for the same benchmark point. For statistical comparisons across runs, use the `benchstat` workflow in [`tooling/benchmarks/README.md`](tooling/benchmarks/README.md).
+`go-config` is normalized to `1.00x`; peer values are time ratios (`peer_ns/op / go-config_ns/op`) for the same benchmark point, so values above `1.00x` indicate the peer is slower and values below `1.00x` indicate the peer is faster. For statistical comparisons across runs, use the `benchstat` workflow in [`tooling/benchmarks/README.md`](tooling/benchmarks/README.md).
 <!-- BENCHMARK_TABLE:END -->
 
 Benchmark automation reference:
