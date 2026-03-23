@@ -1,6 +1,6 @@
 // Policy/validation WASM module for go-config.
 // Exports the validation ABI: wasm_alloc, wasm_dealloc, validate, error_ptr, error_len.
-// See docs/wasm-validation-abi.md in the Go repo.
+// See docs/architecture.md#validation-wasm-abi in the Go repo.
 
 const MAX_ERROR_LEN: usize = 1024;
 

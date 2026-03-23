@@ -11,18 +11,14 @@ jobs:
       - name: Validate branch name
         run: |
           branch="${{ github.head_ref }}"
-          pattern='^(main|develop|(feature|bugfix|release|hotfix|ci|chore|docs)/[a-z0-9][a-z0-9-]*)$'
+          pattern='^(main|develop|(feature|feat|bugfix|fix|release|hotfix|refactor|perf|test|ci|chore|docs)/[a-z0-9][a-z0-9-]*)$'
           if [[ ! "$branch" =~ $pattern ]]; then
             echo "::error::Branch name '$branch' does not match the required pattern."
             echo "Allowed formats:"
             echo "  main, develop"
-            echo "  feature/<lowercase-hyphenated>"
-            echo "  bugfix/<lowercase-hyphenated>"
-            echo "  release/<lowercase-hyphenated>"
-            echo "  hotfix/<lowercase-hyphenated>"
-            echo "  ci/<lowercase-hyphenated>"
-            echo "  chore/<lowercase-hyphenated>"
-            echo "  docs/<lowercase-hyphenated>"
+            echo "  feat/ fix/ refactor/ perf/ docs/ test/ chore/ ci/"
+            echo "  feature/ bugfix/ release/ hotfix/ (legacy aliases)"
+            echo "  Example: feat/loader-direct-decode, docs/readme-architecture"
             exit 1
           fi
           echo "Branch name '$branch' is valid."

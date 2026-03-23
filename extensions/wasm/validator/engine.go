@@ -1,5 +1,5 @@
 // Package validator provides the PolicyEngine for running WASM policy/validation
-// modules. See docs/wasm-validation-abi.md for the validation WASM ABI.
+// modules. See docs/architecture.md#validation-wasm-abi for the validation ABI.
 package validator
 
 import (
@@ -20,7 +20,7 @@ type PolicyEngine struct {
 
 // NewPolicyEngine compiles the given WASM bytes (validation ABI) and returns
 // an engine. The module must export wasm_alloc, wasm_dealloc, validate,
-// error_ptr, and error_len. See docs/wasm-validation-abi.md.
+// error_ptr, and error_len. See docs/architecture.md#validation-wasm-abi.
 func NewPolicyEngine(ctx context.Context, wasmBytes []byte) (*PolicyEngine, error) {
 	rt := wazero.NewRuntime(ctx)
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, rt); err != nil {

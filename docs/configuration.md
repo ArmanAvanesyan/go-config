@@ -1,0 +1,64 @@
+# Configuration guide
+
+This guide summarizes how to configure `go-config` pipelines and where each option applies.
+
+## Core builder pattern
+
+Most setups start with `config.New()` and chain options and sources:
+
+```go
+loader := config.New(
+    // options...
+).AddSource(sourceA, parserA).
+  AddSource(sourceB, parserB)
+```
+
+`Load(ctx, &target)` executes the standard staged pipeline. `LoadTyped[T](ctx, loader)` returns a typed value using the same loader configuration.
+
+## Common option areas
+
+The exact option surface evolves, but most configuration falls into:
+
+- merge strategy selection (deep/replace style)
+- resolver behavior (enabled/disabled, custom resolver)
+- decoder behavior (strictness and mapping preferences)
+- validator hook
+- direct decode fast path toggles
+- runtime watch/reload integration options
+
+For stage behavior details, see [Pipeline Reference](./architecture.md#10-pipeline-reference).
+
+## Source and parser composition
+
+- `Source` provides either raw `Document` or `TreeDocument`.
+- Parsers are attached per source where needed.
+- `TreeDocument` sources bypass parse.
+- Source priority and registration order define merge precedence.
+
+See [Pipeline Reference](./architecture.md#10-pipeline-reference) for ordering rules.
+
+## Runtime reload configuration
+
+Reload behavior combines:
+
+- a configured loader
+- a `ReloadTrigger` (fsnotify/polling style backends)
+- a callback receiving old/new snapshots and diff metadata
+
+See [Runtime and Reload Reference](./architecture.md#11-runtime-and-reload-reference) for lifecycle details.
+
+## WASM-related configuration notes
+
+If you are working with Rust-backed parser/validator artifacts:
+
+- use `make wasm-build-docker` to regenerate
+- use `make wasm-verify-docker` to validate against CI parity
+
+This avoids host toolchain drift in `.wasm` outputs.
+
+## Recommended references
+
+- [architecture.md](./architecture.md)
+- [architecture.md#10-pipeline-reference](./architecture.md#10-pipeline-reference)
+- [architecture.md#11-runtime-and-reload-reference](./architecture.md#11-runtime-and-reload-reference)
+- [testing.md](./testing.md)

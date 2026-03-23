@@ -4,23 +4,41 @@
 ![Go Version](https://img.shields.io/badge/go-1.24+-blue.svg)
 [![CI](https://github.com/ArmanAvanesyan/go-config/actions/workflows/ci.yml/badge.svg)](https://github.com/ArmanAvanesyan/go-config/actions/workflows/ci.yml)
 
-A typed, modular, dependency-light configuration library for Go.
+A typed, **pipeline-based** configuration system for Go with explicit behavior and zero globals.
 
-> **Not another Viper wrapper.** No globals, no magic, no mystery precedence rules. Just an explicit pipeline: sources → merge → resolve → decode → validate → your struct.
+> **Not another Viper wrapper.** No globals, no magic, no hidden precedence.
+> Just an explicit pipeline:
+>
+> **Sources → Parse → Merge → Resolve → Decode → Validate → your struct**
 
 ---
 
 ## Why go-config?
 
-| | Viper | Koanf | **go-config** |
+Single comparison versus Viper and Koanf (✅ yes · ⚠️ partial or pattern-dependent · ❌ no):
+
+| Capability | Viper | Koanf | go-config |
 |---|---|---|---|
-| Typed-first API | ✗ (string getters) | partial | ✓ |
-| No globals | ✗ | ✓ | ✓ |
-| Dependency-light core | ✗ | partial | ✓ (stdlib only) |
-| Strict unknown-key detection | ✗ | ✗ | ✓ |
-| Rust/WASM parsers | ✗ | ✗ | ✓ |
-| Immutable reload snapshots | ✗ | ✗ | ✓ |
-| Pluggable extension model | partial | ✓ | ✓ |
+| Typed pipeline (decode into structs, not string state) | ❌ | ⚠️ | ✅ |
+| No globals | ❌ | ✅ | ✅ |
+| Dependency-light core | ❌ | ⚠️ | ✅ (stdlib-first core) |
+| Strict decode / unknown keys | ⚠️ | ✅ | ✅ |
+| First-class resolver stage (`${ENV:...}`, `${FILE:...}`, `${REF:...}`) | ❌ | ⚠️ | ✅ |
+| WASM-backed YAML/TOML parsers | ❌ | ❌ | ✅ |
+| Reload snapshots + path-level diff | ❌ | ❌ | ✅ |
+| Composable pipeline (explicit stages) | ❌ | ⚠️ | ✅ |
+
+Unlike Viper and Koanf, go-config uses **one deterministic pipeline** instead of ad-hoc key access: **Sources → Parse → Merge → Resolve → Decode → Validate**.
+
+---
+
+## What You Get
+
+- Deterministic configuration loading (no hidden precedence)
+- Strong typing end-to-end (no casting, no globals)
+- Fully composable pipeline (swap any stage)
+- Live reload with structured diff awareness
+- WASM-powered parsing and policy validation
 
 ---
 
@@ -28,7 +46,11 @@ A typed, modular, dependency-light configuration library for Go.
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [What You Get](#what-you-get)
 - [Core Concepts](#core-concepts)
+  - [Mental Model](#mental-model)
+  - [Configuration Pipeline (Contracts)](#configuration-pipeline-contracts)
+  - [Capability Layers](#capability-layers)
   - [Pipeline](#pipeline)
   - [Sources](#sources)
   - [Parsers / Formats](#parsers--formats)
@@ -41,11 +63,13 @@ A typed, modular, dependency-light configuration library for Go.
   - [Multiple sources with defaults](#multiple-sources-with-defaults)
   - [Strict decoding](#strict-decoding)
   - [Placeholder resolution](#placeholder-resolution)
+  - [Typed load](#typed-load)
   - [Custom validation](#custom-validation)
   - [Live reload](#live-reload)
 - [Package Layout](#package-layout)
 - [Architecture Docs](#architecture-docs)
 - [Dependency Policy](#dependency-policy)
+- [Schema generation](#schema-generation)
 - [Rust/WASM Parsers](#rustwasm-parsers)
 - [Roadmap](#roadmap)
 - [Benchmarks](#benchmarks)
@@ -60,7 +84,7 @@ A typed, modular, dependency-light configuration library for Go.
 go get github.com/ArmanAvanesyan/go-config
 ```
 
-The core packages depend only on the Go standard library. Format parsers (YAML, TOML) use Rust/WASM via [wazero](https://github.com/tetratelabs/wazero) — see [Rust/WASM Parsers](#rustwasm-parsers).
+The `config` layer is stdlib-first. YAML/TOML use Rust/WASM via [wazero](https://github.com/tetratelabs/wazero) — see [Rust/WASM Parsers](#rustwasm-parsers) and [docs/wasm-parsers.md](docs/wasm-parsers.md). The core stays stdlib-only for public loader contracts; extensions may add dependencies — see [Dependency Policy](#dependency-policy).
 
 ---
 
@@ -118,9 +142,85 @@ func main() {
 
 ## Core Concepts
 
+### Mental Model
+
+`go-config` treats configuration as a **data pipeline**, not global state.
+
+Each stage is:
+
+- explicit
+- replaceable
+- composable
+
+You build a configuration system by composing:
+
+- Sources (where data comes from)
+- Parsers (how input is interpreted)
+- Merge strategy (how conflicts are resolved)
+- Resolvers (how references are expanded)
+- Decoder (how data becomes typed)
+- Validator (how correctness is enforced)
+
+### Configuration Pipeline (Contracts)
+
+At a high level:
+
+```
+Sources → Parse → Merge → Resolve → Decode → Validate
+```
+
+Each stage is defined by a contract:
+
+- **Source**: returns `Document` or `TreeDocument`
+- **Parser**: converts raw `Document` bytes into tree data
+- **merge.Strategy**: combines trees deterministically
+- **Resolver**: transforms merged trees (for example placeholders or indirection)
+- **Decoder**: maps tree data into typed targets
+- **Validator**: enforces post-decode correctness rules
+
+### Capability Layers
+
+The system is structured into layered capabilities:
+
+#### Layer 1 — Core Engine
+
+- pipeline orchestration
+- typed loading
+- deterministic behavior
+
+#### Layer 2 — Providers (Built-ins)
+
+- sources: file, env, flags, memory, bytes
+- parsers: JSON, YAML, TOML
+- resolvers, decoders, validators, merge strategies
+
+#### Layer 3 — Runtime Capabilities
+
+- live reload
+- diff tracking
+- immutable old/new snapshots in callbacks
+
+#### Layer 4 — Extensions
+
+- WASM-backed parser/runtime adapters
+- policy validation adapters
+- schema generation/inference helpers
+
+#### Layer 5 — Tooling
+
+- benchmark suites
+- profiling/report scripts
+- CI parity and comparison workflows
+
+This layering ensures:
+
+- core stays dependency-light
+- optional features remain isolated
+- behavior is explicit and composable
+
 ### Pipeline
 
-Every call to `Load` runs the same deterministic pipeline:
+Every call to `Load` executes the same deterministic pipeline:
 
 ```
 Sources (in order)
@@ -180,7 +280,9 @@ loader.AddSourceWithMeta(
 
 ### Parsers / Formats
 
-A `Parser` converts raw `*Document` bytes into a `map[string]any` tree.
+A `Parser` converts raw `*Document` bytes into a structured tree (`map[string]any`).
+
+> Most users do not need to build WASM artifacts — prebuilt binaries are embedded.
 
 | Package | Format | Backend |
 |---------|--------|---------|
@@ -222,11 +324,11 @@ cleanup, _ := yaml.AddSharedBytesSource(ctx, loader, "inline", rawYAML)
 defer cleanup()
 ```
 
-YAML transport now uses a strict binary ABI v2 contract (no legacy JSON fallback).
-After pulling changes that touch YAML parser transport/runtime, you must rebuild
-the YAML WASM artifact (`cd rust && make build-yaml`) so parser and runtime stay aligned.
+> **Advanced:** transport/ABI details: [docs/wasm-parsers.md](docs/wasm-parsers.md), [architecture extensions](docs/architecture.md#12-extensions-reference).
 
-The YAML and TOML parsers require the Rust/WASM binaries to be built first — see [Rust/WASM Parsers](#rustwasm-parsers). The JSON parser uses the standard library with no extra setup.
+YAML uses ABI v2 (`GCFGMP1` + Msgpack). After changes to YAML parser transport or runtime, rebuild the YAML WASM artifact (`cd rust && make build-yaml`) so guest and host stay aligned. Contributors building from source: [docs/wasm-parsers.md](docs/wasm-parsers.md).
+
+> JSON parsing uses the Go standard library with zero additional setup.
 
 ### Merge Strategies
 
@@ -257,7 +359,7 @@ type Strategy interface {
 
 ### Resolvers
 
-A `Resolver` transforms the merged tree before decoding — used for placeholder expansion.
+A `Resolver` transforms the merged tree before decoding (placeholder expansion, indirection).
 
 | Package | Syntax | Example |
 |---------|--------|---------|
@@ -283,7 +385,7 @@ config.New(
 
 ### Decoders
 
-A `Decoder` maps the final merged tree into the typed target struct.
+A `Decoder` maps the final merged tree into a typed struct.
 
 | Package | Behaviour |
 |---------|-----------|
@@ -300,7 +402,7 @@ config.New(
 
 ### Validators
 
-A `Validator` runs after decoding. The default is a no-op.
+A `Validator` runs after decoding. Default is no-op.
 
 | Package | Behaviour |
 |---------|-----------|
@@ -326,16 +428,7 @@ config.New(
 
 ## Usage Examples
 
-### File + env override
-
-```go
-// config.yaml sets the base; APP_* env vars override individual keys.
-// APP_SERVER_PORT=9090 overrides server.port.
-err = config.New().
-    AddSource(file.New("config.yaml"), yp).
-    AddSource(env.New("APP")).
-    Load(ctx, &cfg)
-```
+> All examples are deterministic and side-effect free — no global state involved. For loader options and composition, see [docs/configuration.md](docs/configuration.md).
 
 ### Multiple sources with defaults
 
@@ -369,37 +462,7 @@ err = config.New(
 
 ### Placeholder resolution
 
-```yaml
-# config.yaml
-database:
-  password: ${ENV:DB_PASSWORD}
-  host: ${ENV:DB_HOST}
-  # Or load from file / reference other keys:
-  # token: ${FILE:./secrets/token.txt}
-  # api_url: https://${REF:server.host}/v1
-```
-
-```go
-import (
-    "github.com/ArmanAvanesyan/go-config/providers/resolver/chain"
-    envresolver "github.com/ArmanAvanesyan/go-config/providers/resolver/env"
-    fileresolver "github.com/ArmanAvanesyan/go-config/providers/resolver/file"
-    refresolver "github.com/ArmanAvanesyan/go-config/providers/resolver/ref"
-)
-
-// Single resolver:
-err = config.New(
-    config.WithResolver(envresolver.New()),
-).AddSource(file.New("config.yaml"), yp).
-    Load(ctx, &cfg)
-
-// Chain FILE → ENV → REF so file contents and env vars resolve first, then ${REF:...} can reference the merged config.
-err = config.New(
-    config.WithResolver(chain.New(fileresolver.New(), envresolver.New(), refresolver.New())),
-).AddSource(file.New("config.yaml"), yp).
-    Load(ctx, &cfg)
-// cfg.Database.Password is set from $DB_PASSWORD at load time
-```
+YAML can use `${ENV:KEY}`, `${FILE:path}`, and `${REF:key.path}` (see [Resolvers](#resolvers)). Wire a resolver on the loader, for example `chain.New(file, env, ref)` so file and env expand before `${REF:...}` sees the merged tree.
 
 ### Typed load
 
@@ -438,7 +501,7 @@ err = config.New(
 
 ### Live reload
 
-Use `WatchTyped` with a `ReloadTrigger` (e.g. `runtime/watch/fsnotify` or `runtime/watch/polling`) to get immutable snapshots on each reload and an optional config diff:
+Use `WatchTyped` with a `ReloadTrigger` to receive immutable snapshots on each reload:
 
 ```go
 import (
@@ -461,86 +524,32 @@ err := config.WatchTyped[AppConfig](ctx, loader, watcher, func(old, new *AppConf
 // Blocks until ctx is cancelled; then call watcher.Stop() (WatchTyped does this)
 ```
 
-Each reload decodes into a new snapshot; the callback receives `(old, new)` and `changes` (path-level diff). Use `runtime/watch/polling` for a polling-based trigger with no file watcher dependency.
+Each reload produces a new immutable snapshot; the callback receives `(old, new)` and `changes` (path-level diff).
+
+Reload guarantees:
+
+- no shared mutable state
+- serialized updates (no race conditions)
+- diff-aware change handling
+
+Use `runtime/watch/polling` for a polling-based trigger with no file watcher dependency.
 
 ---
 
 ## Package Layout
 
-```
-go-config/
-├── config/               Core interfaces and Loader
-│   ├── config.go         New() entrypoint
-│   ├── loader.go         Loader, AddSource(), Load()
-│   ├── watch.go          ReloadTrigger, WatchTyped()
-│   ├── options.go        Option functions: WithDecoder, WithValidator, ...
-│   ├── source.go         Source interface
-│   ├── parser.go         Parser interface
-│   ├── decoder.go        Decoder interface
-│   ├── validator.go      Validator interface
-│   ├── resolver.go       Resolver interface
-│   ├── document.go       Document, TreeDocument types
-│   └── errors.go         Sentinel errors
-│
-├── providers/source/
-│   ├── file/             File-backed source
-│   ├── env/              Environment variable source
-│   ├── memory/           In-memory source (defaults)
-│   ├── bytes/            Raw bytes source
-│   └── flag/             flag.CommandLine source
-│
-├── providers/parser/
-│   ├── json/             JSON parser (stdlib)
-│   ├── yaml/             YAML parser (Rust serde_yaml via WASM)
-│   └── toml/             TOML parser (Rust toml-rs via WASM)
-│
-├── providers/merge/
-│   ├── merge.go          Strategy interface
-│   ├── deep/             DeepOverride strategy package
-│   └── replace/          Replace strategy package
-│
-├── providers/decoder/
-│   ├── mapstructure/     Default weakly-typed internal decode
-│   └── strict/           Strict decoder (fails on unknown keys)
-│
-├── extensions/schema/
-│   ├── generate/         JSON Schema generation from Go struct types
-│   └── infer/            Best-effort JSON Schema inference from trees
-│
-├── providers/validator/
-│   ├── noop/             No-op validator (default)
-│   └── playground/       Function-based validator
-│
-├── providers/resolver/
-│   ├── env/              ${ENV:KEY} resolver
-│   ├── file/             ${FILE:path} resolver
-│   ├── ref/              ${REF:key.path} resolver
-│   └── chain/            Chain multiple resolvers
-│
-├── runtime/diff/                 Config tree diff (path-level changes)
-├── runtime/watch/
-│   ├── fsnotify/         File-system watcher (ReloadTrigger)
-│   └── polling/          Polling watcher (ReloadTrigger)
-│
-├── extensions/wasm/         Rust/WASM parser infrastructure
-│   ├── runtime/wazero/   wazero engine wrapper
-│   └── parser/
-│       ├── rusttoml/     TOML via Rust
-│       ├── rustyaml/     YAML via Rust
-│       └── rustjson/     JSON via Rust (opt-in)
-│
-├── testutil/             Test helpers
-├── internal/engine/      Internal pipeline engine (loader/pipeline/context/errors)
-├── internal/tree/        Tree path helpers (Get/Walk/CloneMap)
-├── internal/normalize/   Key and path normalisation helpers
-├── internal/decode/      Internal decode mapper/coercion/tag helpers
-├── examples/             Runnable usage examples
-└── rust/                 Rust WASM parser source crates
-    ├── parsers/toml-parser/
-    ├── parsers/yaml-parser/
-    ├── parsers/json-parser/
-    └── Makefile
-```
+Public API: **`config/`**. Everything else is optional providers, runtime helpers, or internal packages.
+
+| Area | Role |
+|------|------|
+| `config/` | Loader, options, contracts (`Source`, `Parser`, `Decoder`, …) |
+| `providers/` | Sources, parsers, merge, decoders, resolvers, validators |
+| `runtime/` | Watch triggers (`fsnotify`, `polling`), config diff |
+| `extensions/` | WASM parsers/validator, schema generate/infer |
+| `internal/` | Pipeline engine and helpers (not a stable API) |
+| `examples/`, `rust/` | Runnable samples and WASM crate sources |
+
+For a fuller map of packages and behavior, see [docs/architecture.md](docs/architecture.md).
 
 ---
 
@@ -548,14 +557,23 @@ go-config/
 
 For focused implementation references:
 
+- [Docs index](docs/index.md)
 - [Architecture](docs/architecture.md)
-- [Pipeline](docs/pipeline.md)
-- [Runtime](docs/runtime.md)
-- [Extensions](docs/extensions.md)
+- [Configuration guide](docs/configuration.md)
+- [Engineering standards](docs/engineering-standards.md)
+- [Pipeline](docs/architecture.md#10-pipeline-reference)
+- [Runtime](docs/architecture.md#11-runtime-and-reload-reference)
+- [Diagnostics](docs/diagnostics.md)
+- [Extensions](docs/architecture.md#12-extensions-reference)
+- [FAQ](docs/faq.md)
+- [Roadmap (docs)](docs/roadmap.md) — process priorities, shipped surface, feature backlog
+- [Rust/WASM parsers (docs)](docs/wasm-parsers.md)
+- [Testing guide](docs/testing.md)
+- [Release process](docs/release.md)
 
 ## Dependency Policy
 
-**The core must never import optional capabilities.**
+**The core must not depend on optional capabilities.**
 
 | Package group | External deps |
 |---------------|--------------|
@@ -567,15 +585,15 @@ For focused implementation references:
 | `providers/resolver/*` | none — stdlib only |
 | `extensions/schema/*` | none — stdlib only |
 | `providers/parser/json` | none — stdlib only |
-| `providers/parser/yaml` | `wazero` (WASM runtime) |
-| `providers/parser/toml` | `wazero` (WASM runtime) |
-| `extensions/wasm/*` | `wazero` (WASM runtime) |
+| `providers/parser/yaml` | `wazero` (WASM runtime; shares transport stack with `extensions/wasm`) |
+| `providers/parser/toml` | `wazero` (WASM runtime; shares transport stack with `extensions/wasm`) |
+| `extensions/wasm/*` | `wazero` (WASM runtime); `github.com/vmihailenco/msgpack/v5` (parser ABI v2 output decode) |
 | `extensions/wasm/validator/*` | `wazero` (WASM runtime) |
 | `runtime/watch/fsnotify` | `golang.org/x/sys` (Linux/macOS: OS events; Windows/other: stdlib polling only) |
 | `runtime/watch/polling` | none — stdlib only |
 | `runtime/diff` | none — stdlib only |
 
-The core `config/` package imports only stdlib and `runtime/diff` (for Watch diff). Third-party dependencies: `github.com/tetratelabs/wazero` (WASM runtime, no CGO) and `golang.org/x/sys` (optional, for `runtime/watch/fsnotify` OS-event backend on Linux and macOS only; Windows and other platforms use stdlib-only polling).
+The core `config/` package imports only stdlib and `runtime/diff` (for Watch diff). Optional stacks add third-party modules: `github.com/tetratelabs/wazero` (WASM runtime, no CGO), `github.com/vmihailenco/msgpack/v5` (Msgpack decode of WASM parser transport after the `GCFGMP1` prefix), and `golang.org/x/sys` (optional, for `runtime/watch/fsnotify` OS-event backend on Linux and macOS only; Windows and other platforms use stdlib-only polling).
 
 ---
 
@@ -609,165 +627,37 @@ func main() {
 }
 ```
 
-You can also infer a best-effort schema from a merged config tree with `extensions/schema/infer`:
-
-```go
-import "github.com/ArmanAvanesyan/go-config/extensions/schema/infer"
-
-tree := map[string]any{ /* merged config */ }
-b, err := infer.GenerateFromTree(tree)
-```
-
-The output targets JSON Schema draft 2020-12 by default.
+For a best-effort schema from a merged tree, use `extensions/schema/infer` (`infer.GenerateFromTree`). Output targets JSON Schema draft 2020-12 by default.
 
 ---
 
 ## Rust/WASM Parsers
 
-YAML and TOML parsing is delegated to Rust crates compiled to WebAssembly, running in-process via wazero. This eliminates the `gopkg.in/yaml.v3` and `github.com/pelletier/go-toml/v2` Go dependencies.
+YAML and TOML are parsed by Rust crates compiled to WebAssembly and run in-process with **wazero**. Prebuilt `.wasm` files are embedded, so **you do not need Rust** to use the module as a dependency.
 
-**Benefits:**
-- Rust's serde ecosystem is among the fastest config parsers available
-- Memory-safe parsing with full Rust ownership guarantees
-- Single WASM runtime (`wazero`) powers all formats
+**Why:** serde-based parsers, one shared WASM runtime, no `gopkg.in/yaml.v3` / `go-toml` dependency for those formats.
 
-**Rust crates:**
-
-| Parser | Crate | Location |
-|--------|-------|----------|
-| TOML | `toml = "0.8"` | `rust/parsers/toml-parser/` |
-| YAML | `serde_yaml = "0.9"` | `rust/parsers/yaml-parser/` |
-| JSON | `serde_json = "1"` | `rust/parsers/json-parser/` |
-
-### Building the WASM binaries
-
-The compiled `.wasm` files are checked into the repository under `extensions/wasm/parser/rust*/` and embedded into the Go binary via `go:embed`. You only need to rebuild them when modifying the Rust source.
-
-Downstream Go consumers do not need Rust installed when using the repository/module with committed WASM artifacts. Rust is required for contributors who change Rust parser/validator code and for CI artifact verification.
-
-**Prerequisites:**
-
-```bash
-# Install Rust (https://rustup.rs)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# Add the WASM target
-rustup target add wasm32-wasip1
-```
-
-**Build:**
-
-```bash
-cd rust && make all
-```
-
-This compiles all three parsers and copies the `.wasm` binaries to their Go package directories.
-
-From repo root, contributor shortcuts:
-
-```bash
-make wasm-build
-make wasm-verify
-```
-
-`wasm-verify` rebuilds artifacts and fails if committed `.wasm` files are stale.
-
-### WASM ABI
-
-All parser crates expose an identical ABI so the same Go engine code handles all three:
-
-| Export | Signature | Purpose |
-|--------|-----------|---------|
-| `wasm_alloc` | `(size: u32) → *mut u8` | Allocate input buffer in WASM memory |
-| `wasm_dealloc` | `(ptr: *mut u8, size: u32)` | Free input buffer |
-| `parse` | `(ptr: *const u8, len: u32) → i32` | Parse bytes; 0 = success |
-| `output_ptr` | `() → *const u8` | Pointer to parser output bytes |
-| `output_len` | `() → u32` | Length of parser output bytes |
-
-Go writes input bytes into WASM linear memory, calls `parse`, then reads transport bytes back. For YAML, the current contract is ABI v2: `GCFGMP1` prefix + Msgpack payload. The engine (`extensions/wasm/runtime/wazero`) handles the full protocol.
-
-### Using the WASM JSON parser (opt-in)
-
-The `providers/parser/json` package uses stdlib by default. For high-throughput scenarios with large JSON configs, the Rust-backed parser is available:
-
-```go
-import rustjson "github.com/ArmanAvanesyan/go-config/extensions/wasm/parser/rustjson"
-
-jp, err := rustjson.New(ctx)
-if err != nil {
-    log.Fatal(err)
-}
-defer jp.Close(ctx)
-
-loader.AddSource(file.New("config.json"), jp)
-```
-
-### WASM policy/validation
-
-Policy and validation rules can run inside a WebAssembly module, so you can enforce config rules in a sandboxed, portable way. The default embedded policy (from `rust/validators/config-policy`) currently allows all valid JSON; you can supply a custom WASM for stricter rules.
-
-**Usage:**
-
-```go
-import "github.com/ArmanAvanesyan/go-config/extensions/wasm/validator/rustpolicy"
-
-validator, err := rustpolicy.New(ctx)
-if err != nil {
-    log.Fatal(err)
-}
-defer validator.Close(ctx)
-
-config.New(
-    config.WithValidator(validator),
-).AddSource(...).Load(ctx, &cfg)
-```
-
-**Validation WASM ABI:** Custom policy modules must export the ABI described in [docs/wasm-validation-abi.md](docs/wasm-validation-abi.md) (`wasm_alloc`, `wasm_dealloc`, `validate`, `error_ptr`, `error_len`). Use `rustpolicy.NewFromBytes(ctx, wasmBytes)` to load your own WASM.
-
-**Building the default policy WASM:** From the repo root, run `cd rust && make build-policy` to rebuild the Rust policy crate and copy `policy.wasm` into `extensions/wasm/validator/rustpolicy/`. The committed `policy.wasm` is a minimal allow-all module so the package builds without Rust; replace it with the Rust-built binary for the full implementation.
+**Contributors:** rebuilding parsers or policy WASM, parser ABI, optional Rust JSON parser, and `rustpolicy` usage → **[docs/wasm-parsers.md](docs/wasm-parsers.md)**. Validation ABI: [docs/architecture.md#validation-wasm-abi](docs/architecture.md#validation-wasm-abi).
 
 ---
 
 ## Roadmap
 
-### Features
-
-| Status | Feature | Description |
-|:---:|---|-------------|
-| ✅ | ⚙️ **Typed pipeline** | Load config through an explicit pipeline (sources → merge → resolve → decode → validate) with no globals or magic precedence. Decode directly into your structs. |
-| ✅ | 🧩 **Pluggable sources and formats** | File, env, memory, bytes, and flag sources; JSON (stdlib), YAML and TOML (Rust/WASM). Deep-merge and replace strategies; optional placeholder resolution (`${ENV:...}`, `${FILE:...}`, `${REF:...}`) and source metadata (priority, required/optional). |
-| ✅ | 🔁 **Live reload** | File-system watcher (`runtime/watch/fsnotify`) and polling watcher (`runtime/watch/polling`) implement `ReloadTrigger`. `WatchTyped` delivers immutable snapshots per reload and an optional path-level config diff. |
-| ✅ | ✨ **Ergonomic API** | `Load(ctx, &cfg)` for one-shot load; `LoadTyped[AppConfig](ctx, loader)` for typed snapshots; `WatchTyped[T](ctx, loader, trigger, callback)` for reload with (old, new, diff). All behaviour is opt-in and explicit. |
-| ✅ | 🧪 **Testability** | No globals; sources, resolvers, decoders, and validators are injectable. Use `providers/source/memory` and a mock `ReloadTrigger` to test load and watch flows without the filesystem. |
-
-### TO-DO
-
-| Status | Feature | Description |
-|:---:|---|-------------|
-| ✅ | **WASM policy/validation engine** | Policy and validation rules executed via WebAssembly. |
-| ✅ | **Schema generation** | Generate JSON Schema from config structs via `extensions/schema/generate` and infer from merged config trees via `extensions/schema/infer`. |
-| ⬜ | **Remote sources: etcd** | Source that reads config from etcd. |
-| ⬜ | **Remote sources: S3** | Source that reads config from AWS S3 (or compatible). |
-| ⬜ | **Remote sources: Vault** | Source that reads secrets/config from HashiCorp Vault. |
-| ⬜ | **Remote sources: Consul** | Source that reads config from Consul KV. |
+The core loader is production-ready. **Process priorities, what is already shipped, and the feature backlog** (including remote sources such as etcd, S3, Vault, and Consul) live in **[docs/roadmap.md](docs/roadmap.md)** — that file is the canonical roadmap so this README stays a stable overview.
 
 ---
 
 ## Benchmarks
 
-The [`tooling/benchmarks/`](tooling/benchmarks/) module compares go-config with Viper and Koanf on shared fixtures (JSON, YAML, multi-source merge). It uses a nested `go.mod` so optional dependencies stay out of the core module. See [`tooling/benchmarks/README.md`](tooling/benchmarks/README.md) for commands and how to capture output for [benchstat](https://pkg.go.dev/golang.org/x/perf/cmd/benchstat).
+Benchmarks are provided to measure and compare:
 
-For unified benchmark + profile + coverage summaries, use [`tooling/reports/`](tooling/reports/) and run:
+- pipeline overhead
+- parser performance
+- multi-source merge behavior
 
-```bash
-make report-local
-make report-pr-local
-```
+The [`tooling/benchmarks/`](tooling/benchmarks/) module compares go-config with Viper and Koanf (nested `go.mod` keeps optional deps out of the core). Commands and **benchstat** workflow: [`tooling/benchmarks/README.md`](tooling/benchmarks/README.md).
 
-Reporting notes:
-- `tooling/reports/schemas/summary.schema.json` is the canonical top-level report contract.
-- Coverage strict-threshold reporting reads targets from `tooling/reports/schemas/coverage-targets.manifest.json`.
-- Tree schema inference uses first-element array heuristics for heterogeneous arrays.
+Unified benchmark, profile, and coverage summaries: [`tooling/reports/`](tooling/reports/) (`make report-local`, `make report-pr-local`). Schema contracts and coverage targets live under `tooling/reports/schemas/`.
 
 ---
 
