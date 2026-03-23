@@ -15,4 +15,4 @@ hyperfine \
   --export-json "$OUT_DIR/hyperfine.json" \
   --export-markdown "$OUT_DIR/hyperfine.md" \
   -n "go-bench" \
-  "cd \"$ROOT_DIR\" && go test -bench=$BENCH_PATTERN -benchmem -count=1 ./..."
+  "cd \"$ROOT_DIR\" && go test -bench=$BENCH_PATTERN -benchmem -count=1 ./scenarios/..."

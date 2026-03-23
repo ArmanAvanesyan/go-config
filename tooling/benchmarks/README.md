@@ -113,6 +113,38 @@ Important for YAML v2 transport:
 - With stale artifacts, `go-config` YAML benches fail with `invalid transport prefix`.
 - For contributor parity with CI no-drift checks, from repo root run `make wasm-verify`.
 
+## GitHub Pages (gobenchdata + hyperfine + reports + profiles)
+
+Interactive charts, benchmark history, unified tooling reports, and YAML profile text exports are published by the same **Benchmarks** workflow ([`.github/workflows/benchmarks.yml`](../../.github/workflows/benchmarks.yml)) that runs the suite and uploads artifacts (manual trigger only).
+
+### One-time repository setup
+
+1. In **Settings → Pages**, set **Build and deployment** source to **Deploy from a branch**, branch **`gh-pages`**, folder **`/ (root)`** (or match where [gobenchdata](https://github.com/marketplace/actions/continuous-benchmarking-for-go) places `index.html`).
+2. After the first successful run, open the site URL shown on the Pages settings page.
+
+### How to publish
+
+1. Go to **Actions → Benchmarks → Run workflow**.
+2. Choose **full run** (`-count=10` for gobenchdata and `./run.sh`) only when you want a slower, more stable aggregate; default smoke uses `-count=1`.
+3. Optionally change **bench pattern** (same as `go test -bench`).
+
+The job:
+
+- Runs **`./run.sh`** (same as the main **Benchmarks** workflow) so `tooling/benchmarks/results/raw/bench-*.txt` exists for dashboards and for [`tooling/reports/`](../reports/README.md).
+- Runs [`scripts/profile_yaml.sh`](./scripts/profile_yaml.sh) and copies `yaml-profile-*-top.txt` into [`tooling/profiles/raw/`](../profiles/README.md) (text only; large `.pprof` files are not uploaded to Pages).
+- Builds unified reports: `build_report.py`, `render_markdown.py`, `render_pr_comment.py` → published under **`reports/`** on `gh-pages` (`summary.json`, `summary.md`, `pr-comment.md`, `index.html`).
+- Runs [hyperfine](https://github.com/sharkdp/hyperfine) on `go test -bench … -benchmem -count=1 ./scenarios/...` with bounded `RUNS`/`WARMUP` for CI (see workflow).
+- Runs [gobenchdata](https://github.com/marketplace/actions/continuous-benchmarking-for-go) in **custom** mode (`go run go.bobheadxi.dev/gobenchdata@v1 action`) with `actions/setup-go` so the Go version matches the root [`go.mod`](../../go.mod) and the nested benchmarks module.
+- Pushes gobenchdata’s app and merged `benchmarks.json` to **`gh-pages`**, then adds **`hyperfine/`**, **`reports/`**, and **`profiles/`** on the same branch.
+
+### Optional PAT (`GOBENCHDATA_TOKEN`)
+
+If the site does not update after pushes, GitHub sometimes does not rebuild Pages for commits made with the default `GITHUB_TOKEN`. Create a **personal access token** with `repo` scope, add it as repository secret **`GOBENCHDATA_TOKEN`**. The workflow uses it when set; otherwise it uses `github.token`. See the [Continuous Benchmarking for Go](https://github.com/marketplace/actions/continuous-benchmarking-for-go) notes on PAT vs `GITHUB_TOKEN`.
+
+### Runtime expectations
+
+The full **`./scenarios/...`** suite can take **tens of minutes** even with `-count=1` (similar to the main **Benchmarks** workflow). The workflow job timeout is **180 minutes**. Hyperfine repeats the command several times; CI uses low `RUNS`/`WARMUP` to cap wall time.
+
 ## Optional tools
 
 - `hyperfine` command-level orchestration:

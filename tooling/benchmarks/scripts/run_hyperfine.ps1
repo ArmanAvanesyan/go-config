@@ -14,4 +14,4 @@ hyperfine `
   --export-json (Join-Path $outDir "hyperfine.json") `
   --export-markdown (Join-Path $outDir "hyperfine.md") `
   -n "go-bench" `
-  "cd `"$root`" ; go test -bench=$benchPattern -benchmem -count=1 ./..."
+  "cd `"$root`" ; go test -bench=$benchPattern -benchmem -count=1 ./scenarios/..."

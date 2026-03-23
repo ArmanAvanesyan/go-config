@@ -1,3 +1,6 @@
+# Manual-only: run benchmarks, unified reports + README table, artifacts, gobenchdata + hyperfine + gh-pages.
+# Enable GitHub Pages (source: gh-pages branch) in repo settings.
+
 name: Benchmarks
 
 on:
@@ -13,29 +16,29 @@ on:
         required: false
         type: string
         default: Benchmark
-  schedule:
-    - cron: "0 5 * * 1"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: benchmarks-${{ github.repository }}
+  cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   benchmarks:
-    name: Run benchmark suite
+    name: Benchmarks, reports, and GitHub Pages
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 180
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -46,14 +49,15 @@ jobs:
       - name: Resolve benchmark settings
         id: bench_cfg
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.full_run }}" == "true" ]]; then
+          # workflow_dispatch boolean inputs are delivered as strings "true" / "false"
+          if [[ "${{ github.event.inputs.full_run }}" == "true" ]]; then
             echo "count=10" >> "$GITHUB_OUTPUT"
             echo "mode=full" >> "$GITHUB_OUTPUT"
-            echo "timeout=60m" >> "$GITHUB_OUTPUT"
+            echo "timeout=90m" >> "$GITHUB_OUTPUT"
           else
             echo "count=1" >> "$GITHUB_OUTPUT"
             echo "mode=smoke" >> "$GITHUB_OUTPUT"
-            echo "timeout=15m" >> "$GITHUB_OUTPUT"
+            echo "timeout=45m" >> "$GITHUB_OUTPUT"
           fi
           pattern="${{ github.event.inputs.bench_pattern }}"
           if [[ -z "$pattern" ]]; then
@@ -64,20 +68,122 @@ jobs:
       - name: Run tooling benchmarks
         run: |
           cd tooling/benchmarks
-          BENCH_COUNT="${{ steps.bench_cfg.outputs.count }}" BENCH_PATTERN="${{ steps.bench_cfg.outputs.pattern }}" BENCH_TIMEOUT="${{ steps.bench_cfg.outputs.timeout }}" bash ./run.sh
+          BENCH_COUNT="${{ steps.bench_cfg.outputs.count }}" \
+            BENCH_PATTERN="${{ steps.bench_cfg.outputs.pattern }}" \
+            BENCH_TIMEOUT="${{ steps.bench_cfg.outputs.timeout }}" \
+            bash ./run.sh
+
+      - name: YAML profile capture for unified report
+        run: |
+          cd tooling/benchmarks
+          bash scripts/profile_yaml.sh
+          mkdir -p ../../profiles/raw
+          shopt -s nullglob
+          for f in results/raw/yaml-profile-*-top.txt; do
+            cp "$f" "../../profiles/raw/"
+          done
 
       - name: Extract benchmark dashboard JSON
         run: |
           cd tooling/benchmarks
           latest_raw="$(ls -1t results/raw/bench-*.txt | head -n 1)"
+          if ! grep -q "BenchmarkSingleSource_TOML_Size" "$latest_raw"; then
+            echo "Expected TOML benchmark output was not found in $latest_raw"
+            exit 1
+          fi
           python3 ./scripts/extract_go_bench.py "$latest_raw" "results/dashboards/summary-ci.json"
 
-      - name: Build unified reports
+      - name: Build unified reports and README benchmark table
         run: |
           python3 tooling/reports/scripts/build_report.py
           python3 tooling/reports/scripts/render_markdown.py
           python3 tooling/reports/scripts/render_pr_comment.py
           python3 tooling/benchmarks/scripts/update_readme_benchmark_table.py
+
+      - name: Install hyperfine
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y hyperfine
+
+      - name: Run hyperfine
+        env:
+          RUNS: 3
+          WARMUP: 1
+          BENCH_PATTERN: ${{ steps.bench_cfg.outputs.pattern }}
+        run: |
+          cd tooling/benchmarks
+          bash scripts/run_hyperfine.sh
+
+      - name: Stage static site extras for gh-pages
+        run: |
+          export_root="$RUNNER_TEMP/pages-export"
+          mkdir -p "$export_root/reports" "$export_root/profiles" "$export_root/hyperfine"
+          cp tooling/reports/output/summary.json \
+            tooling/reports/output/summary.md \
+            tooling/reports/output/pr-comment.md \
+            "$export_root/reports/"
+          cp tooling/benchmarks/pages/reports-index.html "$export_root/reports/index.html"
+          shopt -s nullglob
+          for f in tooling/profiles/raw/*; do
+            base="$(basename "$f")"
+            [[ "$base" == .gitkeep ]] && continue
+            [[ -f "$f" ]] || continue
+            cp "$f" "$export_root/profiles/"
+          done
+          cp tooling/benchmarks/results/raw/hyperfine.json \
+            tooling/benchmarks/results/raw/hyperfine.md \
+            "$export_root/hyperfine/"
+          cp tooling/benchmarks/pages/hyperfine-index.html "$export_root/hyperfine/index.html"
+
+      - name: gobenchdata publish
+        run: go run go.bobheadxi.dev/gobenchdata@v1 action
+        env:
+          GITHUB_TOKEN: ${{ secrets.GOBENCHDATA_TOKEN != '' && secrets.GOBENCHDATA_TOKEN || github.token }}
+          INPUT_SUBDIRECTORY: tooling/benchmarks
+          INPUT_GO_TEST_PKGS: ./scenarios/...
+          INPUT_GO_BENCHMARKS: ${{ steps.bench_cfg.outputs.pattern }}
+          INPUT_GO_TEST_FLAGS: -benchmem -count=${{ steps.bench_cfg.outputs.count }} -timeout=90m
+          INPUT_PUBLISH: "true"
+          INPUT_PUBLISH_BRANCH: gh-pages
+          INPUT_PRUNE_COUNT: "30"
+          INPUT_GIT_COMMIT_MESSAGE: "gobenchdata ${{ github.sha }}"
+
+      - name: Publish reports, profiles, and hyperfine to gh-pages
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages
+          git checkout -B gh-pages origin/gh-pages
+          mkdir -p reports profiles hyperfine
+          cp -a "$RUNNER_TEMP/pages-export/reports/." reports/
+          cp -a "$RUNNER_TEMP/pages-export/profiles/." profiles/
+          cp -a "$RUNNER_TEMP/pages-export/hyperfine/." hyperfine/
+          {
+            echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Profiles — go-config</title></head><body>'
+            echo '<h1>Profile text exports</h1><p>YAML parse hotspot <code>-top.txt</code> summaries from the latest workflow run.</p><ul>'
+            any=0
+            shopt -s nullglob
+            for f in profiles/*; do
+              [[ -f "$f" ]] || continue
+              bn="$(basename "$f")"
+              [[ "$bn" == index.html ]] && continue
+              any=1
+              echo "<li><a href=\"${bn}\">${bn}</a></li>"
+            done
+            echo '</ul>'
+            if [[ "$any" -eq 0 ]]; then
+              echo '<p><em>No profile text files in this run.</em></p>'
+            fi
+            echo '<p><a href="../reports/">reports</a> · <a href="../hyperfine/">hyperfine</a> · <a href="../index.html">gobenchdata</a></p></body></html>'
+          } > profiles/index.html
+          git add reports profiles hyperfine
+          if git diff --staged --quiet; then
+            echo "No static extras changes to commit."
+          else
+            git commit -m "reports profiles hyperfine ${{ github.sha }}"
+            git push origin gh-pages
+          fi
 
       - name: Upload benchmark and report artifacts
         if: always()
@@ -90,6 +196,7 @@ jobs:
             tooling/reports/output/summary.json
             tooling/reports/output/summary.md
             tooling/reports/output/pr-comment.md
+            README.md
           if-no-files-found: warn
           retention-days: 30
 
@@ -97,13 +204,14 @@ jobs:
         if: always()
         run: |
           {
-            echo "## Benchmark workflow summary"
+            echo "## Benchmarks workflow summary"
             echo
             echo "- Mode: \`${{ steps.bench_cfg.outputs.mode }}\`"
             echo "- BENCH_COUNT: \`${{ steps.bench_cfg.outputs.count }}\`"
             echo "- BENCH_PATTERN: \`${{ steps.bench_cfg.outputs.pattern }}\`"
             echo "- BENCH_TIMEOUT: \`${{ steps.bench_cfg.outputs.timeout }}\`"
             echo "- Artifacts: \`benchmark-tooling-${{ github.run_id }}\`"
+            echo "- GitHub Pages: \`gh-pages\` (gobenchdata + \`reports/\`, \`profiles/\`, \`hyperfine/\`)"
             echo
             if [[ -f tooling/reports/output/pr-comment.md ]]; then
               cat tooling/reports/output/pr-comment.md
