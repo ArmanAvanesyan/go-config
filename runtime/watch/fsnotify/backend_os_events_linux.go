@@ -19,7 +19,7 @@ func newBackend() backend {
 }
 
 func (b *osEventsBackend) start(ctx context.Context, paths []string, debounce time.Duration, onReload func()) (func() error, <-chan struct{}, error) {
-	// Child context is cancelled from stop() so the read loop can exit even when
+	// Child context is canceled from stop() so the read loop can exit even when
 	// the caller passed context.Background() (common in tests) and would otherwise
 	// spin on EAGAIN until the fd closes.
 	watchCtx, cancel := context.WithCancel(ctx)
