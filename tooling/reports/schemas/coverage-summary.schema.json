@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://go-config.local/schemas/coverage-summary.schema.json",
+  "title": "CoverageSummary",
+  "type": "object",
+  "required": [
+    "present",
+    "source_file",
+    "line_count",
+    "mode",
+    "summary_percent"
+  ],
+  "properties": {
+    "present": {
+      "type": "boolean"
+    },
+    "source_file": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "line_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "summary_percent": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

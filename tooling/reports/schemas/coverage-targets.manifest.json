@@ -1,0 +1,41 @@
+{
+  "packages": [
+    "./extensions/schema/generate",
+    "./internal/decode",
+    "./internal/engine",
+    "./internal/normalize",
+    "./internal/tree",
+    "./config",
+    "./runtime/watch/fsnotify"
+  ],
+  "target_files": [
+    "extensions/schema/generate/json.go",
+    "extensions/schema/generate/options.go",
+    "extensions/schema/generate/reflect_builder.go",
+    "extensions/schema/generate/tags.go",
+    "extensions/schema/generate/types.go",
+    "internal/decode/coercion.go",
+    "internal/decode/decode.go",
+    "internal/decode/mapper.go",
+    "internal/decode/tags.go",
+    "internal/engine/context.go",
+    "internal/engine/errors.go",
+    "internal/engine/pipeline.go",
+    "internal/normalize/keys.go",
+    "internal/normalize/paths.go",
+    "internal/tree/walk.go",
+    "internal/tree/merge_helpers.go",
+    "runtime/watch/fsnotify/backend_polling.go",
+    "config/config.go",
+    "config/decoder.go",
+    "config/document.go",
+    "config/errors.go",
+    "config/options.go",
+    "config/parser.go",
+    "config/resolver.go",
+    "config/source.go",
+    "config/types.go",
+    "config/validator.go",
+    "config/watch.go"
+  ]
+}

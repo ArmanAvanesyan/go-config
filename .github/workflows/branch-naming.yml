@@ -1,0 +1,25 @@
+name: Branch Naming Check
+
+on:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  validate-branch-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name
+        run: |
+          branch="${{ github.head_ref }}"
+          pattern='^(main|develop|(feature|bugfix|release|hotfix)/[a-z0-9][a-z0-9-]*)$'
+          if [[ ! "$branch" =~ $pattern ]]; then
+            echo "::error::Branch name '$branch' does not match the required pattern."
+            echo "Allowed formats:"
+            echo "  main, develop"
+            echo "  feature/<lowercase-hyphenated>"
+            echo "  bugfix/<lowercase-hyphenated>"
+            echo "  release/<lowercase-hyphenated>"
+            echo "  hotfix/<lowercase-hyphenated>"
+            exit 1
+          fi
+          echo "Branch name '$branch' is valid."

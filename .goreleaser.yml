@@ -1,0 +1,21 @@
+version: 2
+project_name: go-lib-template
+
+# Minimal config for a library: no binaries are built.
+# See: https://goreleaser.com/cookbooks/release-a-library/
+
+builds:
+  - skip: true
+
+release:
+  disable: false
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+

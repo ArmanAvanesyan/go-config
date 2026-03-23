@@ -1,0 +1,62 @@
+# Binaries and build artifacts
+bin/
+dist/
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+*.tmp
+
+# Test / coverage artifacts
+*.test
+tooling/benchmarks/*.test
+coverage
+coverage.out
+coverage.integration.out
+coverage-*.out
+*.cov
+tmp_generate_cover
+!tooling/reports/testdata/coverage-sample.out
+
+# Go build cache (usually outside repo, but safe)
+*.log
+
+# Rust/Cargo local build outputs
+rust/target/
+rust/**/target/
+
+# Note: WASM runtime artifacts under extensions/wasm/**/*.wasm are intentionally
+# versioned and must remain tracked (embedded by go:embed + verified in CI).
+
+# IDE / editor settings
+.idea/
+.vscode/
+*.iml
+.claude/
+.cursor/
+
+# Benchmark outputs (see tooling/benchmarks/results/README.md)
+tooling/benchmarks/results/raw/*
+tooling/benchmarks/results/compare/*
+tooling/benchmarks/results/dashboards/*
+!tooling/benchmarks/results/raw/.gitkeep
+!tooling/benchmarks/results/compare/.gitkeep
+!tooling/benchmarks/results/dashboards/.gitkeep
+
+# Local profiling artifacts
+tooling/profiles/raw/*
+tooling/profiles/reports/*
+!tooling/profiles/raw/.gitkeep
+!tooling/profiles/reports/.gitkeep
+
+# Local reporting artifacts
+tooling/reports/output/*
+!tooling/reports/output/.gitkeep
+
+# Python cache artifacts
+**/__pycache__/
+
+# OS files
+.DS_Store
+Thumbs.db

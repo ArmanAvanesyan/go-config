@@ -1,0 +1,8 @@
+# generated benchmark outputs
+raw/*
+compare/*
+dashboards/*
+
+!raw/.gitkeep
+!compare/.gitkeep
+!dashboards/.gitkeep

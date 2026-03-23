@@ -1,0 +1,21 @@
+{
+  "name": "decode-medium",
+  "enabled": true,
+  "tags": ["alpha", "beta", "gamma"],
+  "meta": {
+    "team": "platform",
+    "env": "dev",
+    "region": "eu-central"
+  },
+  "nested": {
+    "host": "127.0.0.1",
+    "port": 9090
+  },
+  "app": {
+    "name": "demo-medium"
+  },
+  "server": {
+    "host": "localhost",
+    "port": 8081
+  }
+}

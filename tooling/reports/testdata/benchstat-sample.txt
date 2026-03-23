@@ -1,0 +1,7 @@
+name	old time/op	new time/op	delta
+BenchmarkCompare_All_JSON/go-config-12	1.30us ± 2%	1.40us ± 3%	+7.69% (p=0.002 n=10+10)
+BenchmarkCompare_All_YAML/go-config-12	2.60us ± 1%	2.10us ± 1%	-19.23% (p=0.001 n=10+10)
+geomean	1.84us	1.71us	-7.07%
+
+name	old B/op	new B/op	delta
+BenchmarkCompare_All_JSON/go-config-12	800 ± 0%	820 ± 0%	+2.50% (p=0.004 n=10+10)

@@ -1,0 +1,4 @@
+Showing nodes accounting for 30ms, 60% of 50ms total
+      flat  flat%   sum%        cum   cum%
+      20ms 40.00% 40.00%       20ms 40.00%  runtime.memmove
+      10ms 20.00% 60.00%       15ms 30.00%  encoding/json.(*decodeState).object

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://go-config.local/schemas/bench-summary.schema.json",
+  "title": "BenchmarkSummary",
+  "type": "object",
+  "required": [
+    "source_file",
+    "benchmark_count",
+    "benchmarks"
+  ],
+  "properties": {
+    "source_file": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "benchmark_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "benchmarks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "iterations",
+          "ns_per_op"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "iterations": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "ns_per_op": {
+            "type": "number",
+            "minimum": 0
+          },
+          "bytes_per_op": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "allocs_per_op": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "comparison": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "source_file",
+        "all",
+        "regressions",
+        "improvements"
+      ],
+      "properties": {
+        "source_file": {
+          "type": "string"
+        },
+        "regressions": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "improvements": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,17 @@
+[package]
+name = "go_config_toml_parser"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "toml_parser"
+crate-type = ["cdylib"]
+
+[dependencies]
+toml = "1"
+rmp-serde = "1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true

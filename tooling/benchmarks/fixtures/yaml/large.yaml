@@ -1,0 +1,31 @@
+app:
+  name: demo-large
+server:
+  host: localhost
+  port: 8082
+features:
+  f01: true
+  f02: false
+  f03: true
+  f04: false
+  f05: true
+  f06: false
+  f07: true
+  f08: false
+  f09: true
+  f10: false
+services:
+  auth:
+    url: http://auth.local
+    timeout_ms: 3000
+  billing:
+    url: http://billing.local
+    timeout_ms: 4500
+  search:
+    url: http://search.local
+    timeout_ms: 2800
+labels:
+  owner: core
+  stack: go
+  tier: backend
+  cost_center: cc-42

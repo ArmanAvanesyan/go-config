@@ -1,0 +1,17 @@
+[package]
+name = "go_config_json_parser"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "json_parser"
+crate-type = ["cdylib"]
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+
+[dependencies]
+serde_json = "1"
+

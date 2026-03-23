@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://go-config.local/schemas/summary.schema.json",
+  "title": "UnifiedToolingSummary",
+  "type": "object",
+  "required": [
+    "metadata",
+    "benchmarks",
+    "profiles",
+    "coverage"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "generated_at",
+        "repository",
+        "commit",
+        "branch",
+        "inputs"
+      ],
+      "properties": {
+        "generated_at": { "type": "string" },
+        "repository": { "type": "string" },
+        "commit": { "type": ["string", "null"] },
+        "branch": { "type": ["string", "null"] },
+        "inputs": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "benchmarks": { "$ref": "./bench-summary.schema.json" },
+    "profiles": { "$ref": "./profile-summary.schema.json" },
+    "coverage": { "$ref": "./coverage-summary.schema.json" }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,80 @@
+name: Bug report
+description: "Create a report to help us improve."
+title: "[BUG]: "
+labels:
+  - "bug"
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping us improve!
+        Please fill out the sections below with as much detail as possible.
+
+  - type: input
+    id: library_version
+    attributes:
+      label: "Library Version"
+      description: "Which version of this library are you using?"
+      placeholder: "e.g. v0.3.1 or commit SHA"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "What happened?"
+      description: "Describe the bug clearly and concisely."
+      placeholder: |
+        A clear description of what went wrong.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "What did you expect to happen?"
+      description: "Describe the behavior you expected."
+      placeholder: |
+        I expected the function to return X, or I expected no error.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "Steps to Reproduce"
+      description: "Minimal code or steps that reproduce the bug."
+      placeholder: |
+        ```go
+        package main
+
+        import "github.com/your-org/your-lib"
+
+        func main() {
+            // Reproduce the issue here
+        }
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: "Environment"
+      description: "Include details about your environment."
+      placeholder: |
+        - OS: (e.g. Ubuntu 22.04, macOS 14, Windows 11)
+        - Go version: (e.g. go1.23.0)
+        - Other relevant tools or dependencies
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Logs / Stack Trace"
+      description: "Paste relevant error output, stack traces, or logs."
+      render: text
+    validations:
+      required: false

@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+# Cancel in-progress runs for the same branch/PR to avoid wasting resources.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# CI only needs to read the repository — not write back to it.
+permissions:
+  contents: read
+
+# Opt into Node.js 24 for JavaScript actions ahead of the Node 20 deprecation.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+
+      - name: Verify go.mod tidy
+        run: |
+          go mod tidy
+          git diff --exit-code
+
+      - name: Verify WASM artifacts are up to date
+        run: |
+          make -C rust all
+          git diff --exit-code
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./... -count=1 -race -short
+
+      - name: Coverage
+        run: make test-cover
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-out
+          path: coverage.out
+          if-no-files-found: ignore
+
+      - name: Build tooling reports
+        if: always()
+        run: |
+          python3 tooling/reports/scripts/build_report.py
+          python3 tooling/reports/scripts/render_markdown.py
+          python3 tooling/reports/scripts/render_pr_comment.py
+
+      - name: Tooling script contract tests
+        if: always()
+        run: |
+          python3 -m unittest tooling/reports/scripts/test_build_report.py
+          python3 -m unittest tooling/scripts/test_bench_parsers.py
+          python3 tooling/reports/scripts/build_report.py --help
+          python3 tooling/reports/scripts/render_markdown.py --help
+          python3 tooling/reports/scripts/render_pr_comment.py --help
+          python3 tooling/benchmarks/scripts/extract_go_bench.py --help
+          python3 tooling/benchmarks/scripts/render_regression_comment.py --help
+
+      - name: Upload tooling reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tooling-reports
+          path: tooling/reports/output/
+          if-no-files-found: ignore
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          # golangci-lint-action manages its own cache; disable setup-go caching
+          # here to avoid redundant cache entries.
+          cache: false
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.1.6
+
+  examples:
+    name: Build examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build examples
+        run: |
+          set -e
+          for pkg in $(go list ./examples/... 2>/dev/null || true); do
+            echo "building $pkg"
+            go build "$pkg"
+          done
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run integration tests
+        run: go test -tags=integration -race ./...

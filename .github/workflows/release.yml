@@ -1,0 +1,225 @@
+name: Release
+
+# Three ways this workflow is triggered:
+#
+#   1. workflow_dispatch — manually from the GitHub UI (Actions → Release →
+#      Run workflow). Provide an explicit version (e.g. 1.2.0).
+#
+#   2. workflow_run — automatically when the CI workflow completes
+#      successfully on a push to main/master. The patch component of the
+#      last tag is incremented automatically. Skipped if HEAD is already
+#      tagged (i.e. the same commit would be released twice).
+#
+#   3. push (tags) — manual tag push; runs GoReleaser to create the GitHub Release.
+#
+# What this workflow does:
+#   1. Verifies go.mod is tidy and all tests pass.
+#   2. Prepends a new entry to CHANGELOG.md from git commits since the last tag.
+#   3. Updates the Go version badge in README.md if go.mod has changed.
+#   4. Commits both files back to the default branch.
+#   5. Creates and pushes the vX.X.X tag.
+#   6. Runs GoReleaser in the same run to create the GitHub Release (tag pushes
+#      with GITHUB_TOKEN do not trigger new workflow runs, so we run here).
+#
+# Branch protection note: if your default branch requires pull requests,
+# the bot commit in step 4 will fail. In that case either disable the
+# "require a pull request" rule for github-actions[bot], or commit
+# CHANGELOG.md manually before running this workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 1.2.0 — without the "v" prefix)'
+        required: true
+        type: string
+
+  # Auto-release when CI passes on a push to main/master.
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main, master]
+
+  # Triggered automatically when the prepare job pushes the tag.
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Step 1: prepare ────────────────────────────────────────────────────────
+  # Runs on workflow_dispatch (explicit version) or a successful CI run on
+  # main/master (auto-bumps patch). Verifies, updates docs, tags, and pushes.
+  prepare:
+    name: Prepare release
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use a token with write access so the bot commit triggers downstream CI.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # ── Resolve version ──────────────────────────────────────────────────
+      # workflow_dispatch: use the explicit input.
+      # workflow_run:      auto-bump the patch component of the last tag.
+      #                    Sets skip=true if HEAD is already tagged (nothing new to release).
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            if git describe --exact-match --tags HEAD 2>/dev/null | grep -qE '^v[0-9]'; then
+              echo "HEAD is already tagged — nothing to release." >&2
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+            else
+              LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+              MAJOR=$(echo "${LAST_TAG#v}" | cut -d. -f1)
+              MINOR=$(echo "${LAST_TAG#v}" | cut -d. -f2)
+              PATCH=$(echo "${LAST_TAG#v}" | cut -d. -f3)
+              echo "version=${MAJOR}.${MINOR}.$((PATCH + 1))" >> "$GITHUB_OUTPUT"
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      # ── Verify ──────────────────────────────────────────────────────────────
+      - name: Verify go.mod is tidy
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          go mod tidy
+          git diff --exit-code
+
+      - name: Run tests
+        if: steps.version.outputs.skip != 'true'
+        run: go test ./... -race -cover
+
+      # ── Update README Go version badge ───────────────────────────────────
+      - name: Update Go version badge in README.md
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          GO_VER=$(awk '/^go /{print $2}' go.mod)
+          sed -i "s|go-[0-9][0-9]*\.[0-9][0-9]*+-blue|go-${GO_VER}+-blue|g" README.md
+
+      # ── Update CHANGELOG.md ─────────────────────────────────────────────
+      - name: Update CHANGELOG.md
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          VERSION="v${{ steps.version.outputs.version }}"
+          DATE=$(date +%Y-%m-%d)
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -n "$LAST_TAG" ]; then
+            RANGE="${LAST_TAG}..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+
+          # Categorise commits by conventional-commit prefix.
+          ADDED=$(git log "$RANGE" --pretty=format:"%s" --no-merges \
+            | grep -E '^feat(\(.+\))?[!:]?' | sed 's/^/- /')
+          FIXED=$(git log "$RANGE" --pretty=format:"%s" --no-merges \
+            | grep -E '^fix(\(.+\))?[!:]?' | sed 's/^/- /')
+          CHANGED=$(git log "$RANGE" --pretty=format:"%s" --no-merges \
+            | grep -E '^(refactor|perf|chore)(\(.+\))?[!:]?' | sed 's/^/- /')
+          BREAKING=$(git log "$RANGE" --pretty=format:"%s" --no-merges \
+            | grep -E '!:' | sed 's/^/- /')
+
+          # Build the new CHANGELOG section.
+          SECTION="## [${VERSION}] - ${DATE}"$'\n'
+
+          if [ -n "$BREAKING" ]; then
+            SECTION+=$'\n### Breaking Changes\n'"$BREAKING"$'\n'
+          fi
+          if [ -n "$ADDED" ]; then
+            SECTION+=$'\n### Added\n'"$ADDED"$'\n'
+          fi
+          if [ -n "$FIXED" ]; then
+            SECTION+=$'\n### Fixed\n'"$FIXED"$'\n'
+          fi
+          if [ -n "$CHANGED" ]; then
+            SECTION+=$'\n### Changed\n'"$CHANGED"$'\n'
+          fi
+          if [ -z "$BREAKING$ADDED$FIXED$CHANGED" ]; then
+            SECTION+=$'\n### Changed\n- Maintenance and minor improvements.\n'
+          fi
+
+          # Prepend the section after the first five header lines of CHANGELOG.md.
+          # Preserves the "# Changelog ... All notable changes ..." preamble.
+          HEADER=$(head -5 CHANGELOG.md)
+          BODY=$(tail -n +6 CHANGELOG.md)
+          printf '%s\n\n%s\n%s\n' "$HEADER" "$SECTION" "$BODY" > CHANGELOG.md
+
+      # ── Commit, tag, push ───────────────────────────────────────────────
+      - name: Commit and tag
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md CHANGELOG.md
+          git diff --cached --quiet || \
+            git commit -m "release v${{ steps.version.outputs.version }}"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin HEAD:${{ github.ref_name }}
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      # ── Create GitHub Release (same run; tag push with GITHUB_TOKEN doesn't trigger workflows)
+      - name: Checkout tag for GoReleaser
+        if: steps.version.outputs.skip != 'true'
+        run: git checkout "v${{ steps.version.outputs.version }}"
+
+      - name: Run GoReleaser
+        if: steps.version.outputs.skip != 'true'
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify Go package proxy
+        if: steps.version.outputs.skip != 'true'
+        run: GOPROXY=proxy.golang.org go list -m github.com/${{ github.repository }}@v${{ steps.version.outputs.version }}
+
+  # ── Step 2: GoReleaser (manual tag push only) ───────────────────────────────
+  # When someone pushes a tag manually, this job creates the GitHub Release.
+  goreleaser:
+    name: Create GitHub Release
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify Go package proxy
+        run: GOPROXY=proxy.golang.org go list -m github.com/${{ github.repository }}@${{ github.ref_name }}

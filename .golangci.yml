@@ -1,0 +1,80 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    # Core correctness
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+
+    # Style and quality
+    - revive
+    - misspell
+
+    # Documentation quality — exported comments must end with a period
+    - godot
+
+    # Forbidden identifiers — enforces logging and panic rules
+    # log.Fatal/log.Fatalf/log.Panic and os.Exit must not be called from library code.
+    - forbidigo
+
+    # Global state — library packages should avoid mutable global variables
+    - gochecknoglobals
+
+    # Context hygiene — net/http requests must use NewRequestWithContext
+    - noctx
+
+  settings:
+    misspell:
+      locale: US
+
+    godot:
+      scope: toplevel
+      period: true
+
+    forbidigo:
+      forbid:
+        - pattern: '^os\.Exit'
+          msg: "libraries must not call os.Exit; return an error instead"
+        - pattern: '^log\.Fatal'
+          msg: "libraries must not call log.Fatal; return an error instead"
+        - pattern: '^log\.Fatalf'
+          msg: "libraries must not call log.Fatalf; return an error instead"
+        - pattern: '^log\.Fatalln'
+          msg: "libraries must not call log.Fatalln; return an error instead"
+        - pattern: '^log\.Panic'
+          msg: "libraries must not call log.Panic; return an error instead"
+        - pattern: '^log\.Panicf'
+          msg: "libraries must not call log.Panicf; return an error instead"
+        - pattern: '^panic\('
+          msg: "avoid panic in library code; return an error instead"
+
+    revive:
+      rules:
+        - name: exported
+
+  exclusions:
+    rules:
+      # Allow panic/globals in test files and examples
+      - path: '_test\.go'
+        linters:
+          - forbidigo
+          - gochecknoglobals
+      - path: 'examples/'
+        linters:
+          - gochecknoglobals
+          - forbidigo
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
