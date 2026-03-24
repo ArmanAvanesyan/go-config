@@ -137,6 +137,49 @@ The job:
 - Runs [gobenchdata](https://github.com/marketplace/actions/continuous-benchmarking-for-go) in **custom** mode (`go run go.bobheadxi.dev/gobenchdata@v1 action`) with `actions/setup-go` so the Go version matches the root [`go.mod`](../../go.mod) and the nested benchmarks module.
 - Pushes gobenchdata’s app and merged `benchmarks.json` to **`gh-pages`**, then adds **`hyperfine/`**, **`reports/`**, and **`profiles/`** on the same branch.
 
+### Local pages export parity
+
+From the repo root, make sure local inputs exist first:
+
+- Run the benchmark suite (`make bench-local` or `make bench-local-smoke`).
+- Build unified reports (`make report-local` and `make report-pr-local`).
+- Run hyperfine output generation (`make bench-hyperfine-local`).
+- Optionally refresh the benchmark table in `README.md` (`make bench-readme-refresh-local`) and capture YAML profile tops (`cd tooling/benchmarks && ./scripts/profile_yaml.sh`).
+
+Then stage the same static tree shape used by CI:
+
+```bash
+./tooling/benchmarks/scripts/stage_pages_export.sh [OUTDIR]
+```
+
+If `OUTDIR` is omitted, the script writes to `./pages-export` and creates:
+
+- `reports/` (`summary.json`, `summary.md`, `pr-comment.md`, `index.html`)
+- `profiles/` (`yaml-profile-*-top.txt` files, if present)
+- `hyperfine/` (`hyperfine.json`, `hyperfine.md`, `index.html`)
+
+The script fails fast with clear errors when required inputs are missing.
+
+### Manual gh-pages update from local export (maintainers)
+
+After staging with `stage_pages_export.sh`, publish with an isolated worktree so local branch state is untouched:
+
+```bash
+git fetch origin gh-pages
+wt="$(mktemp -d)"
+git worktree add -B gh-pages "$wt" origin/gh-pages
+cp -a ./pages-export/reports/. "$wt/reports/"
+cp -a ./pages-export/profiles/. "$wt/profiles/"
+cp -a ./pages-export/hyperfine/. "$wt/hyperfine/"
+# regenerate "$wt/profiles/index.html" using the same block from CI workflow
+cd "$wt"
+git add reports profiles hyperfine
+git commit -m "reports profiles hyperfine <sha>"
+git push origin gh-pages
+cd -
+git worktree remove --force "$wt"
+```
+
 ### Optional PAT (`GOBENCHDATA_TOKEN`)
 
 If the site does not update after pushes, GitHub sometimes does not rebuild Pages for commits made with the default `GITHUB_TOKEN`. Create a **personal access token** with `repo` scope, add it as repository secret **`GOBENCHDATA_TOKEN`**. The workflow uses it when set; otherwise it uses `github.token`. See the [Continuous Benchmarking for Go](https://github.com/marketplace/actions/continuous-benchmarking-for-go) notes on PAT vs `GITHUB_TOKEN`.

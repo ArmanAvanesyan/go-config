@@ -13,3 +13,6 @@ $goArgs = @(
 	"-timeout", $timeout
 ) + $args
 go test ./scenarios @goArgs | Tee-Object -FilePath $out
+if ($LASTEXITCODE -ne 0) {
+	exit $LASTEXITCODE
+}

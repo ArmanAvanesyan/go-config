@@ -178,7 +178,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin gh-pages
-          git checkout -B gh-pages origin/gh-pages
+          wt="$RUNNER_TEMP/gh-pages-wt"
+          rm -rf "$wt"
+          git worktree add -B gh-pages "$wt" origin/gh-pages
+          cd "$wt"
           mkdir -p reports profiles hyperfine
           cp -a "$RUNNER_TEMP/pages-export/reports/." reports/
           cp -a "$RUNNER_TEMP/pages-export/profiles/." profiles/
@@ -208,6 +211,8 @@ jobs:
             git commit -m "reports profiles hyperfine ${{ github.sha }}"
             git push origin gh-pages
           fi
+          cd "$GITHUB_WORKSPACE"
+          git worktree remove --force "$wt"
 
       - name: Upload benchmark and report artifacts
         if: always()
