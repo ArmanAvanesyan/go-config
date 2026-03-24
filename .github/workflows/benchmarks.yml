@@ -135,6 +135,30 @@ jobs:
             "$export_root/hyperfine/"
           cp tooling/benchmarks/pages/hyperfine-index.html "$export_root/hyperfine/index.html"
 
+      # gobenchdata clones the publish branch and runs `git checkout gh-pages`; that fails if the branch
+      # has never been created (pathspec did not match). Bootstrap once, then publish works.
+      - name: Ensure gh-pages branch exists (gobenchdata bootstrap)
+        env:
+          BOOTSTRAP_TOKEN: ${{ secrets.GOBENCHDATA_TOKEN != '' && secrets.GOBENCHDATA_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$(git ls-remote origin refs/heads/gh-pages)" ]]; then
+            echo "gh-pages already exists on origin."
+            exit 0
+          fi
+          echo "Creating initial gh-pages branch for first gobenchdata publish..."
+          tmp="$(mktemp -d)"
+          cd "$tmp"
+          git init -b gh-pages
+          git remote add origin "https://${GITHUB_ACTOR}:${BOOTSTRAP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          touch .nojekyll
+          printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Benchmarks</title></head><body><p>Initializing…</p></body></html>' > index.html
+          git add .nojekyll index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: init gh-pages for benchmarks"
+          git push -u origin gh-pages
+
       - name: gobenchdata publish
         run: go run go.bobheadxi.dev/gobenchdata@v1 action
         env:
