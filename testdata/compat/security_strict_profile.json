@@ -27,7 +27,7 @@
   "env": {
     "priority": 20,
     "prefix": "APP",
-    "infer": true,
+    "infer": false,
     "precedence": "explicit_first",
     "bindings": {
       "server.host": [

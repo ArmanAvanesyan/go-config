@@ -17,8 +17,8 @@ type sourceBinding struct {
 }
 
 // PipelineBinding is an explicit input contract for shared pipeline orchestration.
-// It is intentionally public to allow internal wrappers (e.g. internal/engine)
-// to delegate merge orchestration without duplicating read/parse logic.
+// It is intentionally public so package boundaries can delegate merge
+// orchestration without duplicating read/parse logic.
 type PipelineBinding struct {
 	Source Source
 	Parser Parser

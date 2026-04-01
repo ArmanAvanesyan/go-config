@@ -21,7 +21,7 @@ type Binding struct {
 // LoadAndMerge reads all bindings, parses documents as needed, and merges
 // them into a single configuration tree using the provided merge strategy.
 func LoadAndMerge(ctx context.Context, bindings any, strategy merge.Strategy) (map[string]any, error) {
-	// Fast path for known typed binding shapes.
+	// Supported typed binding shapes.
 	switch typed := bindings.(type) {
 	case []sourceBinding:
 		out := make([]config.PipelineBinding, 0, len(typed))
@@ -36,8 +36,8 @@ func LoadAndMerge(ctx context.Context, bindings any, strategy merge.Strategy) (m
 		}
 		return config.LoadAndMergeBindings(ctx, out, strategy)
 	default:
-		// Fallback adapter path for other slice types that contain fields
-		// named "source" and "parser" with appropriate interfaces.
-		return loadUnknownBindings(newPipelineContext(ctx, strategy), bindings)
+		// Compatibility wrapper path removed in Phase 4:
+		// callers must provide engine.Binding explicitly.
+		return nil, errBindingsMustBeBindingSlice()
 	}
 }

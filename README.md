@@ -64,6 +64,7 @@ Unlike Viper and Koanf, go-config uses **one deterministic pipeline** instead of
   - [Strict decoding](#strict-decoding)
   - [Placeholder resolution](#placeholder-resolution)
   - [Typed load](#typed-load)
+  - [Compatibility parity (fixture-driven)](#compatibility-parity-fixture-driven)
   - [Custom validation](#custom-validation)
   - [Live reload](#live-reload)
 - [Package Layout](#package-layout)
@@ -479,6 +480,23 @@ if err != nil {
 }
 // cfg is AppConfig
 ```
+
+### Compatibility parity (fixture-driven)
+
+Use a fixture-style input to validate compatibility outcomes with `Spec` + `Trace` in a runnable flow:
+
+```bash
+go run ./examples/compat_parity
+```
+
+The example:
+
+- loads `examples/compat_parity/fixture.json`
+- builds `config.Spec` from trees + env policy
+- compares expected vs actual snapshot deterministically
+- verifies selected trace source winners
+
+See full source: `examples/compat_parity/main.go`.
 
 ### Custom validation
 

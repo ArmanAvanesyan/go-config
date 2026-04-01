@@ -25,7 +25,7 @@ func TestContract_EnvPrecedence_ExplicitFirst(t *testing.T) {
 			Infer:      true,
 			Precedence: envsource.ExplicitFirst,
 			Bindings: map[string][]string{
-				"server.host": []string{"HOST"},
+				"server.host": {"HOST"},
 			},
 		}), nil, &config.SourceMeta{Priority: 0, Required: true}).
 		Load(context.Background(), &out)
@@ -53,7 +53,7 @@ func TestContract_EnvPrecedence_InferredFirst(t *testing.T) {
 			Infer:      true,
 			Precedence: envsource.InferredFirst,
 			Bindings: map[string][]string{
-				"server.host": []string{"HOST"},
+				"server.host": {"HOST"},
 			},
 		}), nil, &config.SourceMeta{Priority: 0, Required: true}).
 		Load(context.Background(), &out)

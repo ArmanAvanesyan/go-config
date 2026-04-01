@@ -79,6 +79,24 @@ It records:
 
 See [Pipeline Reference](./architecture.md#10-pipeline-reference) for ordering rules.
 
+## Compatibility parity flow (Spec + Trace)
+
+For Phase 4 compatibility checks, use a fixture-driven `Spec` declaration and compare
+an expected snapshot against the loaded typed output.
+
+Recommended pattern:
+
+1. Load fixture input (`trees`, `env`, `expected`, `expected_trace`).
+2. Build `config.Spec` from fixture trees and env source options.
+3. Enable `Spec.Trace` and run `LoadTypedWithSpec`.
+4. Canonicalize output to a deterministic snapshot and compare.
+5. Assert `Trace.Keys[key].FinalSource` for compatibility-sensitive keys.
+
+Runnable reference:
+
+- `examples/compat_parity/main.go` (user-facing example)
+- `config/contract_compatibility_test.go` (contract gate implementation)
+
 ## Runtime reload configuration
 
 Reload behavior combines:

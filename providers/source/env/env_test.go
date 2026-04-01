@@ -83,7 +83,7 @@ func TestEnvSource_ExplicitBindingsTakePrecedence(t *testing.T) {
 		Infer:      true,
 		Precedence: envSource.ExplicitFirst,
 		Bindings: map[string][]string{
-			"server.host": []string{"HOST"},
+			"server.host": {"HOST"},
 		},
 	})
 	v, err := src.Read(context.Background())

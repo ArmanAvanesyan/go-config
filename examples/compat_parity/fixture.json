@@ -1,0 +1,47 @@
+{
+  "name": "compat_parity_example",
+  "strict": false,
+  "trees": [
+    {
+      "priority": 0,
+      "tree": {
+        "server": {
+          "host": "base.local",
+          "port": 8080
+        },
+        "feature": {
+          "enabled": false,
+          "mode": "baseline"
+        }
+      }
+    }
+  ],
+  "env": {
+    "priority": 20,
+    "prefix": "APP",
+    "infer": true,
+    "precedence": "explicit_first",
+    "bindings": {
+      "server.host": ["HOST"]
+    },
+    "vars": {
+      "APP_HOST": "compat.example.local",
+      "APP_FEATURE__ENABLED": "true",
+      "APP_FEATURE__MODE": "canary"
+    }
+  },
+  "expected": {
+    "server": {
+      "host": "compat.example.local",
+      "port": 8080
+    },
+    "feature": {
+      "enabled": true,
+      "mode": "canary"
+    }
+  },
+  "expected_trace": {
+    "server.host": "env",
+    "feature.mode": "env"
+  }
+}

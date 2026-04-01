@@ -46,6 +46,13 @@ go test ./... -count=1 -race -short
 make test-cover
 ```
 
+Compatibility parity focused run:
+
+```bash
+go test ./... -run '^TestContract_Compat' -count=1
+go run ./examples/compat_parity
+```
+
 ## Test layers
 
 - Unit tests: package-local behavior with deterministic inputs.
@@ -68,7 +75,7 @@ When refactoring internal packages, treat these contracts as part of the test su
 ### `internal/engine`
 
 - Non-slice binding input must return a deterministic error.
-- Reflection adapter input must never panic on malformed shapes; it must return errors.
+- Unknown binding slice types must be rejected; only explicit `engine.Binding` contracts are supported.
 - Source read/parse/merge failures must preserve `config` sentinels via wrapping.
 
 ### `internal/normalize`
@@ -82,6 +89,14 @@ When refactoring internal packages, treat these contracts as part of the test su
 - `CloneMap()` deep-clones nested `map[string]any` values.
 - Non-map nested values are copied by assignment (reference semantics for slices/pointers are preserved).
 - `Walk()` is depth-first over nested maps and must no-op on nil tree or nil visitor.
+
+### Compatibility contract mapping
+
+- Runnable walkthrough: `examples/compat_parity/main.go`
+- Contract gate: `config/contract_compatibility_test.go` (`TestContract_CompatParity_Fixtures`)
+- Intent:
+  - example demonstrates how to compose `Spec` + env policy + `Trace`
+  - contract suite enforces semver-sensitive no-diff behavior in CI/release
 
 ## Conventions
 

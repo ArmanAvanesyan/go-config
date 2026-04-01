@@ -140,6 +140,14 @@ Compatibility wrappers are retired only through a documented migration window.
 - Release notes include explicit migration guidance and deprecation completion note.
 - Removal aligns with semver policy and has explicit maintainer sign-off.
 
+### Removal candidate gate (required)
+
+Before opening a wrapper-removal PR, maintainers must attach:
+
+- parity history from at least three compatibility checkpoint runs (`TestContract_Compat*`) during the active deprecation window
+- explicit confirmation that blocker regression issues are empty or formally waived
+- a maintainer sign-off note that semver impact was reviewed and classified
+
 ---
 
 ## Release notes template
