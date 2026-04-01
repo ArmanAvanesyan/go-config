@@ -48,26 +48,27 @@ Exit criteria:
 
 ## Phase 3: Compatibility Guarantees
 
-- [ ] Add semver-protected contract tests for:
-  - [ ] env precedence
-  - [ ] hook ordering
-  - [ ] merge behavior
-  - [ ] decode coercion semantics
-- [ ] Add release checklist item requiring migration notes for policy behavior changes.
+- [x] Add semver-protected contract tests for:
+  - [x] env precedence
+  - [x] hook ordering
+  - [x] merge behavior
+  - [x] decode coercion semantics
+- [x] Add release checklist item requiring migration notes for policy behavior changes.
 
 Exit criteria:
-- [ ] CI contract suite is mandatory for merge/release.
+- [x] CI contract suite is mandatory for merge/release.
 
-## Phase 4: Safe Migration and Adapter Removal
+## Phase 4: Consumer Compatibility and Deprecation Completion
 
-- [ ] Build shadow parity harness that reproduces adapter outcomes using `go-config` only.
-- [ ] Run parity scenarios for `security`, `sona`, `reporter`.
-- [ ] Keep thin compatibility wrappers for 1-2 releases while monitoring drift.
-- [ ] Remove wrappers only after stable no-diff results.
+- [ ] Build a consumer-compatibility harness that reproduces representative downstream config outcomes using `go-config` alone (no app-specific adapter assumptions).
+- [ ] Run parity scenarios against maintained compatibility fixtures that represent key consumer configuration profiles, and record no-diff results.
+- [ ] Publish a deprecation/migration policy for compatibility wrappers (support window, expected behavior, upgrade notes), and monitor reported drift during the window.
+- [ ] Remove compatibility wrappers only after repeated no-diff parity runs and completion of the published deprecation window.
 
 Exit criteria:
-- [ ] Repeated no-diff parity runs across scenarios.
-- [ ] Explicit go/no-go sign-off recorded.
+- [ ] Repeated no-diff parity outcomes across maintained compatibility fixtures.
+- [ ] Deprecation window completed with documented migration guidance and no unresolved blocker regressions.
+- [ ] Wrapper removal approved under the project's semver and release policy.
 
 ## Execution Notes
 
@@ -231,3 +232,74 @@ Exit criteria:
 - Evidence:
   - Tests: `go test ./config ./providers/source/env ./internal/decode`.
 - Next: Phase 3 planning.
+
+### Checkpoint 1: Contract Harness
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Added dedicated `TestContract_*` suites for policy compatibility assertions.
+  - Organized contract coverage by behavior domain (env, merge, hooks, decode).
+  - Kept tests deterministic and fixture-driven.
+- Evidence:
+  - Modules: `config/contract_merge_semantics_test.go`, `config/contract_hook_order_test.go`, `config/contract_decode_coercion_test.go`, `providers/source/env/contract_precedence_test.go`.
+- Next: checkpoint 2 (env+merge contracts).
+
+### Checkpoint 2: Env and Merge Contracts
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Added env precedence contract tests for explicit and inferred precedence modes.
+  - Added merge contract tests for priority/stable ordering and policy behavior.
+  - Added missing-policy fail contract assertion.
+- Evidence:
+  - Tests: `TestContract_EnvPrecedence_ExplicitFirst`, `TestContract_EnvPrecedence_InferredFirst`, `TestContract_MergeSemantics_*`.
+- Next: checkpoint 3 (hook+decode contracts).
+
+### Checkpoint 3: Hook and Decode Contracts
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Added hook-order contracts for regular decode and direct-decode paths.
+  - Added strict/permissive decode coercion contract tests.
+  - Locked duration coercion expectations in contract-level coverage.
+- Evidence:
+  - Tests: `TestContract_HookOrdering_*`, `TestContract_DecodeCoercion_*`.
+- Next: checkpoint 4 (release governance).
+
+### Checkpoint 4: Release Governance
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Added policy contract suite step to pre-release checklist.
+  - Added explicit migration-note requirement for policy behavior changes.
+- Evidence:
+  - Docs: `docs/release.md`.
+- Next: checkpoint 5 (CI gate).
+
+### Checkpoint 5: CI Gate
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Added dedicated `contract-suite` CI job.
+  - Added release workflow contract-suite execution step.
+  - Standardized contract command as `go test ./... -run '^TestContract_' -count=1`.
+- Evidence:
+  - Workflows: `.github/workflows/ci.yml`, `.github/workflows/release.yml`.
+- Next: checkpoint 6 (closeout).
+
+### Checkpoint 6: Phase 3 Exit Criteria Closure
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Ran contract suite and regression package tests.
+  - Marked Phase 3 checklist and exit criteria complete.
+  - Recorded checkpoint evidence and Phase 4 handoff.
+- Evidence:
+  - Tests: `go test ./... -run '^TestContract_' -count=1`; `go test ./config ./providers/source/env ./internal/decode`.
+- Next: Phase 4 planning.

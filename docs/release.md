@@ -81,9 +81,11 @@ Before running the release workflow, validate:
 
 - `go mod tidy && git diff --exit-code`
 - `go test ./... -count=1 -race -short`
+- `go test ./... -run '^TestContract_' -count=1` (policy contract suite)
 - `golangci-lint run ./...`
 - `make wasm-verify-docker`
 - docs and user-facing examples are updated for any behavior/API changes
+- policy behavior changes (env precedence, hook ordering, merge semantics, decode coercion) include explicit migration notes in changelog/release notes
 
 ### Release execution
 

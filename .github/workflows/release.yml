@@ -114,6 +114,10 @@ jobs:
         if: steps.version.outputs.skip != 'true'
         run: go test ./... -race -cover
 
+      - name: Run policy contract suite
+        if: steps.version.outputs.skip != 'true'
+        run: go test ./... -run '^TestContract_' -count=1
+
       # ── Update README Go version badge ───────────────────────────────────
       - name: Update Go version badge in README.md
         if: steps.version.outputs.skip != 'true'
