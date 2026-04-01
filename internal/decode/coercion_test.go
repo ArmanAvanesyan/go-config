@@ -3,6 +3,7 @@ package decode
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestAssignScalar_Table(t *testing.T) {
@@ -193,5 +194,32 @@ func TestToUint64_NegativeVariants(t *testing.T) {
 		if _, ok := toUint64(n, false); ok {
 			t.Fatalf("expected negative rejection for %T", n)
 		}
+	}
+}
+
+func TestAssignScalar_DurationWeakParsing(t *testing.T) {
+	t.Parallel()
+	type sample struct {
+		Timeout time.Duration
+	}
+	x := &sample{}
+	dst := reflect.ValueOf(x).Elem().FieldByName("Timeout")
+	if err := assignScalar(dst, "250ms", Options{WeaklyTypedInput: true}, "root.timeout"); err != nil {
+		t.Fatalf("expected duration parse success, got %v", err)
+	}
+	if x.Timeout != 250*time.Millisecond {
+		t.Fatalf("expected 250ms, got %v", x.Timeout)
+	}
+}
+
+func TestAssignScalar_DurationStrictRejectsString(t *testing.T) {
+	t.Parallel()
+	type sample struct {
+		Timeout time.Duration
+	}
+	x := &sample{}
+	dst := reflect.ValueOf(x).Elem().FieldByName("Timeout")
+	if err := assignScalar(dst, "250ms", Options{WeaklyTypedInput: false}, "root.timeout"); err == nil {
+		t.Fatal("expected strict mode duration parse failure")
 	}
 }

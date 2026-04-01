@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"reflect"
 	"testing"
 
 	"github.com/ArmanAvanesyan/go-config/providers/decoder/mapstructure"
@@ -237,6 +239,24 @@ func (p *testTypedParser) Parse(context.Context, *Document) (map[string]any, err
 	return nil, fmt.Errorf("unexpected Parse call")
 }
 
+type orderingValidator struct {
+	order *[]string
+}
+
+func (v *orderingValidator) Validate(context.Context, any) error {
+	*v.order = append(*v.order, "validator-interface")
+	return nil
+}
+
+type orderingConfig struct {
+	Name  string `json:"name"`
+	steps *[]string
+}
+
+func (c *orderingConfig) ApplyDefaults() {
+	*c.steps = append(*c.steps, "defaults-interface")
+}
+
 func (p *testTypedParser) ParseTyped(_ context.Context, _ *Document, out any) error {
 	cfg, ok := out.(*struct {
 		Name string `json:"name"`
@@ -287,5 +307,84 @@ func TestLoader_DirectDecodeConstraints(t *testing.T) {
 	}
 	if err := l2.Load(context.Background(), &out2); err == nil {
 		t.Fatal("expected fallback path parse error when resolver present")
+	}
+}
+
+func TestLoader_LifecycleHookOrdering(t *testing.T) {
+	t.Parallel()
+	steps := []string{}
+	loader := New(
+		WithDefaultsFunc(func(context.Context, any) error {
+			steps = append(steps, "defaults-callback")
+			return nil
+		}),
+		WithValidateFunc(func(context.Context, any) error {
+			steps = append(steps, "validate-callback")
+			return nil
+		}),
+		WithValidator(&orderingValidator{order: &steps}),
+	).AddSource(&testMemSource{tree: map[string]any{"name": "demo"}})
+
+	cfg := &orderingConfig{steps: &steps}
+	if err := loader.Load(context.Background(), cfg); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := []string{"defaults-interface", "defaults-callback", "validate-callback", "validator-interface"}
+	if !reflect.DeepEqual(want, steps) {
+		t.Fatalf("unexpected order, want=%v got=%v", want, steps)
+	}
+}
+
+type parseErrorParser struct{}
+
+func (p *parseErrorParser) Parse(context.Context, *Document) (map[string]any, error) {
+	return nil, fmt.Errorf("parse boom")
+}
+
+type notFoundSource struct{}
+
+func (s *notFoundSource) Read(context.Context) (any, error) {
+	return nil, &os.PathError{Op: "open", Path: "missing.yaml", Err: os.ErrNotExist}
+}
+
+func TestLoader_SourceMeta_ParsePolicyIgnore(t *testing.T) {
+	t.Parallel()
+	type Cfg struct {
+		Key string `json:"key"`
+	}
+
+	loader := New().
+		AddSource(&testMemSource{tree: map[string]any{"key": "ok"}}).
+		AddSourceWithMeta(
+			&testDocSource{doc: &Document{Name: "broken.yaml", Format: "yaml", Raw: []byte(":::")}},
+			[]Parser{&parseErrorParser{}},
+			&SourceMeta{Required: true, ParsePolicy: ParsePolicyIgnore},
+		)
+
+	var cfg Cfg
+	if err := loader.Load(context.Background(), &cfg); err != nil {
+		t.Fatalf("expected parse policy ignore to continue, got %v", err)
+	}
+	if cfg.Key != "ok" {
+		t.Fatalf("expected key=ok, got %q", cfg.Key)
+	}
+}
+
+func TestLoader_SourceMeta_MissingPolicyIgnore(t *testing.T) {
+	t.Parallel()
+	type Cfg struct {
+		Key string `json:"key"`
+	}
+	loader := New().
+		AddSource(&testMemSource{tree: map[string]any{"key": "ok"}}).
+		AddSourceWithMeta(&notFoundSource{}, nil, &SourceMeta{Required: true, MissingPolicy: MissingPolicyIgnore})
+
+	var cfg Cfg
+	if err := loader.Load(context.Background(), &cfg); err != nil {
+		t.Fatalf("expected missing policy ignore to continue, got %v", err)
+	}
+	if cfg.Key != "ok" {
+		t.Fatalf("expected key=ok, got %q", cfg.Key)
 	}
 }

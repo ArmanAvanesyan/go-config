@@ -53,6 +53,30 @@ If you want one of these, open an issue with the read semantics you need (paths,
 - Track parser/merge/decode changes for regressions.
 - Improve benchmark output summaries for PR discussion.
 
+### Adapter policy parity
+
+- Add a declarative env binding model: explicit `key -> [ENV1, ENV2...]` aliases, precedence controls between explicit and inferred names, and key normalization options.
+- Support tag-driven env binding (`env:"A,B"`) with nested path derivation from `mapstructure` tags where applicable.
+- Define and document deterministic lifecycle hook ordering for app-level policy stages (`ApplyDefaults`-style interfaces/callbacks and `Validate`-style interfaces/callbacks).
+- Formalize optional-file and multi-file merge semantics, including per-file missing policies and explicit "later overrides earlier" guarantees.
+- Expand typed decode coercion policy for common config inputs (for example `string -> time.Duration`) with clear strict vs permissive modes.
+- Provide a stable high-level app API (`Load(..., Spec{...})`-style) so applications can declare policy once instead of wiring internals repeatedly.
+- Improve validation contracts so callback and interface validators share consistent error wrapping and field-path context.
+- Add optional explain/trace output that can report source provenance per key (file/env/default/hook) and final precedence decisions.
+
+### Compatibility guarantees for policy behavior
+
+- Add contract tests (and keep them semver-stable) for env precedence, hook ordering, merge behavior, and decode coercion semantics.
+- Treat policy behavior changes as compatibility-impacting, requiring explicit release notes and migration guidance.
+
+### Safe migration path for adapter removal
+
+1. Land policy-parity features in `go-config` with focused contract tests.
+2. Build a shadow parity suite that mirrors current adapter outcomes using only `go-config`.
+3. Run parity scenarios across `security`, `sona`, and `reporter` configurations.
+4. Keep thin compatibility wrappers for 1-2 releases while monitoring no-diff behavior.
+5. Remove wrappers only after parity results are stable and regression risk is acceptable.
+
 ## Medium-term ideas
 
 - Additional typed decoding and strictness controls where practical.

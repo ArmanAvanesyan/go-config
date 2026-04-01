@@ -21,6 +21,8 @@ var (
 	ErrResolutionFailed = errors.New("config: resolution failed")
 	// ErrDecodeFailed is returned when decoding the tree into the target fails.
 	ErrDecodeFailed = errors.New("config: decode failed")
+	// ErrDefaultsFailed is returned when defaults hook execution fails.
+	ErrDefaultsFailed = errors.New("config: defaults failed")
 	// ErrSourceReadFailed is returned when a source fails to read.
 	ErrSourceReadFailed = errors.New("config: source read failed")
 	// ErrParseFailed is returned when parsing a document fails.

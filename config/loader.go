@@ -2,7 +2,9 @@ package config
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"sort"
 
 	"github.com/ArmanAvanesyan/go-config/providers/merge"
@@ -27,6 +29,10 @@ type PipelineBinding struct {
 type Loader struct {
 	sources []sourceBinding
 	options Options
+}
+
+type defaultsApplier interface {
+	ApplyDefaults()
 }
 
 // AddSource registers a source and optional parser; if no parser is given, format is inferred from the source.
@@ -75,10 +81,8 @@ func (l *Loader) Load(ctx context.Context, out any) error {
 		if err != nil {
 			return err
 		}
-		if l.options.Validator != nil {
-			if err := l.options.Validator.Validate(ctx, out); err != nil {
-				return fmt.Errorf("%w: %v", ErrValidationFailed, err)
-			}
+		if err := l.runPostDecodeHooks(ctx, out); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -99,13 +103,7 @@ func (l *Loader) Load(ctx context.Context, out any) error {
 		return fmt.Errorf("%w: %v", ErrDecodeFailed, err)
 	}
 
-	if l.options.Validator != nil {
-		if err := l.options.Validator.Validate(ctx, out); err != nil {
-			return fmt.Errorf("%w: %v", ErrValidationFailed, err)
-		}
-	}
-
-	return nil
+	return l.runPostDecodeHooks(ctx, out)
 }
 
 // loadTreeAndDecode runs the pipeline and decodes into out; it returns the
@@ -130,12 +128,32 @@ func (l *Loader) loadTreeAndDecode(ctx context.Context, out any) (map[string]any
 	if err := l.options.Decoder.Decode(tree, out); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrDecodeFailed, err)
 	}
-	if l.options.Validator != nil {
-		if err := l.options.Validator.Validate(ctx, out); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrValidationFailed, err)
-		}
+	if err := l.runPostDecodeHooks(ctx, out); err != nil {
+		return nil, err
 	}
 	return tree, nil
+}
+
+func (l *Loader) runPostDecodeHooks(ctx context.Context, out any) error {
+	if d, ok := out.(defaultsApplier); ok {
+		d.ApplyDefaults()
+	}
+	if l.options.DefaultsFn != nil {
+		if err := l.options.DefaultsFn(ctx, out); err != nil {
+			return fmt.Errorf("%w: %v", ErrDefaultsFailed, err)
+		}
+	}
+	if l.options.ValidateFn != nil {
+		if err := l.options.ValidateFn(ctx, out); err != nil {
+			return fmt.Errorf("%w: %v", ErrValidationFailed, err)
+		}
+	}
+	if l.options.Validator != nil {
+		if err := l.options.Validator.Validate(ctx, out); err != nil {
+			return fmt.Errorf("%w: %v", ErrValidationFailed, err)
+		}
+	}
+	return nil
 }
 
 func (l *Loader) tryDirectDecode(ctx context.Context, out any) (bool, error) {
@@ -207,9 +225,9 @@ func LoadAndMergeBindings(ctx context.Context, bindings []PipelineBinding, strat
 	})
 
 	for _, b := range sorted {
-		tree, err := readBinding(ctx, b.Source, b.Parser)
+		tree, stage, err := readBinding(ctx, b.Source, b.Parser)
 		if err != nil {
-			if b.Meta != nil && !b.Meta.Required {
+			if shouldIgnoreBindingError(b.Meta, stage, err) {
 				tree = map[string]any{}
 			} else {
 				return nil, err
@@ -225,33 +243,64 @@ func LoadAndMergeBindings(ctx context.Context, bindings []PipelineBinding, strat
 	return merged, nil
 }
 
-func readBinding(ctx context.Context, src Source, parser Parser) (map[string]any, error) {
+type bindingFailureStage int
+
+const (
+	bindingFailureNone bindingFailureStage = iota
+	bindingFailureRead
+	bindingFailureParse
+)
+
+func shouldIgnoreBindingError(meta *SourceMeta, stage bindingFailureStage, err error) bool {
+	if meta == nil {
+		return false
+	}
+	if stage == bindingFailureRead {
+		if meta.MissingPolicy == MissingPolicyIgnore && isNotFoundReadError(err) {
+			return true
+		}
+		if meta.MissingPolicy == MissingPolicyFail {
+			return false
+		}
+		return !meta.Required
+	}
+	if stage == bindingFailureParse {
+		return meta.ParsePolicy == ParsePolicyIgnore
+	}
+	return false
+}
+
+func isNotFoundReadError(err error) bool {
+	return errors.Is(err, os.ErrNotExist)
+}
+
+func readBinding(ctx context.Context, src Source, parser Parser) (map[string]any, bindingFailureStage, error) {
 	v, err := src.Read(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrSourceReadFailed, err)
+		return nil, bindingFailureRead, fmt.Errorf("%w: %w", ErrSourceReadFailed, err)
 	}
 
 	switch doc := v.(type) {
 	case *TreeDocument:
 		if doc == nil || doc.Tree == nil {
-			return nil, ErrInvalidDocument
+			return nil, bindingFailureRead, ErrInvalidDocument
 		}
-		return doc.Tree, nil
+		return doc.Tree, bindingFailureNone, nil
 
 	case *Document:
 		if doc == nil {
-			return nil, ErrInvalidDocument
+			return nil, bindingFailureRead, ErrInvalidDocument
 		}
 		if parser == nil {
-			return nil, ErrParserRequired
+			return nil, bindingFailureParse, ErrParserRequired
 		}
 		tree, err := parser.Parse(ctx, doc)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrParseFailed, err)
+			return nil, bindingFailureParse, fmt.Errorf("%w: %w", ErrParseFailed, err)
 		}
-		return tree, nil
+		return tree, bindingFailureNone, nil
 
 	default:
-		return nil, ErrInvalidDocument
+		return nil, bindingFailureRead, ErrInvalidDocument
 	}
 }

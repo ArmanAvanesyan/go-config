@@ -202,7 +202,10 @@ flowchart LR
     parseStage --> mergeStage[MergeTrees]
     mergeStage --> resolveStage[ResolvePlaceholders]
     resolveStage --> decodeStage[DecodeTypedTarget]
-    decodeStage --> validateStage[ValidateOutput]
+    decodeStage --> defaultsIfaceStage[ApplyDefaultsInterface]
+    defaultsIfaceStage --> defaultsCbStage[DefaultsCallback]
+    defaultsCbStage --> validateCbStage[ValidateCallback]
+    validateCbStage --> validateStage[ValidateInterface]
 ```
 
 ### 10.2 Execution order and precedence
@@ -217,6 +220,8 @@ flowchart LR
 - `TreeDocument` values skip parse and are merged directly.
 - `Document` values require an explicit parser binding for the source.
 - Optional sources (`Required: false`) that fail read are treated as empty trees.
+- `MissingPolicy` can ignore missing-source read failures while keeping other read failures strict.
+- `ParsePolicy` can ignore parser failures for a source and continue with an empty tree.
 
 ### 10.4 Merge and resolve semantics
 
@@ -224,11 +229,15 @@ flowchart LR
 - Resolver is optional and runs once on the fully merged tree.
 - Resolver failures are surfaced as `ErrResolutionFailed`.
 
-### 10.5 Decode and validate semantics
+### 10.5 Decode and lifecycle semantics
 
 - Decoder is mandatory and maps merged trees into typed output.
-- Validator is optional and runs only after successful decode.
-- Decode and validate failures are wrapped with stage-specific sentinels.
+- Post-decode lifecycle order is deterministic:
+  1. `ApplyDefaults()` interface (if implemented by target)
+  2. defaults callback (`WithDefaultsFunc`)
+  3. validate callback (`WithValidateFunc`)
+  4. validator interface (`WithValidator`)
+- Decode, defaults, and validate failures are wrapped with stage-specific sentinels.
 
 ### 10.6 Direct decode fast path
 

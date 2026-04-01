@@ -22,7 +22,7 @@ The exact option surface evolves, but most configuration falls into:
 - merge strategy selection (deep/replace style)
 - resolver behavior (enabled/disabled, custom resolver)
 - decoder behavior (strictness and mapping preferences)
-- validator hook
+- lifecycle hooks (`ApplyDefaults`, defaults callback, validate callback, validator)
 - direct decode fast path toggles
 - runtime watch/reload integration options
 
@@ -34,6 +34,16 @@ For stage behavior details, see [Pipeline Reference](./architecture.md#10-pipeli
 - Parsers are attached per source where needed.
 - `TreeDocument` sources bypass parse.
 - Source priority and registration order define merge precedence.
+- Per-source policies can control missing-input and parse-error behavior.
+
+### Environment binding options
+
+The env source supports both inferred mapping and explicit bindings:
+
+- explicit key aliases (`key -> [ENV1, ENV2...]`)
+- precedence between explicit and inferred env names
+- optional struct-tag extraction from `env:"A,B"` tags
+- inferred key normalization controls (dot/hyphen to underscore, uppercase inference)
 
 See [Pipeline Reference](./architecture.md#10-pipeline-reference) for ordering rules.
 

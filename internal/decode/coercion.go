@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func assignScalar(dst reflect.Value, src any, opts Options, path string) error {
@@ -39,6 +40,12 @@ func assignScalar(dst reflect.Value, src any, opts Options, path string) error {
 			return nil
 		}
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if dst.Type() == reflect.TypeOf(time.Duration(0)) {
+			if d, ok := toDuration(src, opts.WeaklyTypedInput); ok {
+				dst.SetInt(int64(d))
+				return nil
+			}
+		}
 		i, ok := toInt64(src, opts.WeaklyTypedInput)
 		if ok {
 			if dst.OverflowInt(i) {
@@ -68,6 +75,19 @@ func assignScalar(dst reflect.Value, src any, opts Options, path string) error {
 	}
 
 	return fmt.Errorf("decode: cannot assign %T to %s (%s)", src, path, dst.Type())
+}
+
+func toDuration(v any, weak bool) (time.Duration, bool) {
+	switch x := v.(type) {
+	case time.Duration:
+		return x, true
+	case string:
+		if weak {
+			d, err := time.ParseDuration(strings.TrimSpace(x))
+			return d, err == nil
+		}
+	}
+	return 0, false
 }
 
 func toBool(v any, weak bool) (bool, bool) {

@@ -9,6 +9,13 @@ import (
 	"github.com/ArmanAvanesyan/go-config/testutil"
 )
 
+type taggedEnvConfig struct {
+	Server struct {
+		Host string `mapstructure:"host" env:"APP_HOST,APP_SERVER_HOST"`
+		Port int    `mapstructure:"port" env:"APP_PORT"`
+	} `mapstructure:"server"`
+}
+
 func TestEnvSource_Prefix(t *testing.T) {
 	// No t.Parallel() — uses t.Setenv.
 	testutil.MustSetEnv(t, "MYAPP_HOST", "example.com")
@@ -63,5 +70,56 @@ func TestEnvSource_NoPrefix(t *testing.T) {
 	doc := v.(*config.TreeDocument)
 	if doc.Tree["nopfx_unique_key_xyz"] != "present" {
 		t.Fatalf("expected nopfx_unique_key_xyz=present in tree, got %#v", doc.Tree)
+	}
+}
+
+func TestEnvSource_ExplicitBindingsTakePrecedence(t *testing.T) {
+	// No t.Parallel() — uses t.Setenv.
+	testutil.MustSetEnv(t, "APP_SERVER__HOST", "inferred")
+	testutil.MustSetEnv(t, "APP_HOST", "explicit")
+
+	src := envSource.NewWithOptions(envSource.Options{
+		Prefix:     "APP",
+		Infer:      true,
+		Precedence: envSource.ExplicitFirst,
+		Bindings: map[string][]string{
+			"server.host": []string{"HOST"},
+		},
+	})
+	v, err := src.Read(context.Background())
+	testutil.RequireNoError(t, err)
+
+	doc := v.(*config.TreeDocument)
+	server := doc.Tree["server"].(map[string]any)
+	if server["host"] != "explicit" {
+		t.Fatalf("expected explicit value, got %v", server["host"])
+	}
+}
+
+func TestEnvSource_TagBindingsFromStruct(t *testing.T) {
+	// No t.Parallel() — uses t.Setenv.
+	testutil.MustSetEnv(t, "APP_HOST", "from-tag")
+	testutil.MustSetEnv(t, "APP_PORT", "9191")
+	testutil.MustSetEnv(t, "APP_SERVER__HOST", "from-inferred")
+
+	src := envSource.NewWithOptions(envSource.Options{
+		Prefix:             "APP",
+		Infer:              true,
+		Precedence:         envSource.ExplicitFirst,
+		UseStructTagEnvFor: taggedEnvConfig{},
+	})
+	v, err := src.Read(context.Background())
+	testutil.RequireNoError(t, err)
+
+	doc := v.(*config.TreeDocument)
+	server, ok := doc.Tree["server"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected server map, got %#v", doc.Tree)
+	}
+	if server["host"] != "from-tag" {
+		t.Fatalf("expected tag-bound host value, got %v", server["host"])
+	}
+	if server["port"] != "9191" {
+		t.Fatalf("expected tag-bound port value, got %v", server["port"])
 	}
 }

@@ -1,12 +1,18 @@
 package config
 
-import "github.com/ArmanAvanesyan/go-config/providers/merge"
+import (
+	"context"
+
+	"github.com/ArmanAvanesyan/go-config/providers/merge"
+)
 
 // Options holds loader configuration (decoder, validator, resolver, merge strategy, strict).
 type Options struct {
 	Decoder       Decoder
 	decoderSet    bool
 	Validator     Validator
+	DefaultsFn    func(context.Context, any) error
+	ValidateFn    func(context.Context, any) error
 	Resolver      Resolver
 	MergeStrategy merge.Strategy
 	Strict        bool
@@ -28,6 +34,20 @@ func WithDecoder(d Decoder) Option {
 func WithValidator(v Validator) Option {
 	return func(o *Options) {
 		o.Validator = v
+	}
+}
+
+// WithDefaultsFunc sets a callback executed after decode and before validation.
+func WithDefaultsFunc(fn func(context.Context, any) error) Option {
+	return func(o *Options) {
+		o.DefaultsFn = fn
+	}
+}
+
+// WithValidateFunc sets a callback executed after defaults and before Validator.
+func WithValidateFunc(fn func(context.Context, any) error) Option {
+	return func(o *Options) {
+		o.ValidateFn = fn
 	}
 }
 
