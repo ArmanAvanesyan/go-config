@@ -17,6 +17,7 @@ type Options struct {
 	MergeStrategy merge.Strategy
 	Strict        bool
 	DirectDecode  bool
+	Trace         *Trace
 }
 
 // Option configures a Loader via New(opts...).
@@ -77,5 +78,12 @@ func WithStrict(strict bool) Option {
 func WithDirectDecode(enabled bool) Option {
 	return func(o *Options) {
 		o.DirectDecode = enabled
+	}
+}
+
+// WithTrace enables explain/provenance tracing during load.
+func WithTrace(trace *Trace) Option {
+	return func(o *Options) {
+		o.Trace = trace
 	}
 }

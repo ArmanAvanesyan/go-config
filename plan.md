@@ -38,13 +38,13 @@ Exit criteria:
 
 ## Phase 2: App Surface and Observability
 
-- [ ] Add stable high-level app API (`Load(..., Spec{...})`-style).
-- [ ] Unify validation contracts across callbacks/interfaces with consistent error wrapping.
-- [ ] Add explain/trace mode for key provenance and precedence decisions.
+- [x] Add stable high-level app API (`Load(..., Spec{...})`-style).
+- [x] Unify validation contracts across callbacks/interfaces with consistent error wrapping.
+- [x] Add explain/trace mode for key provenance and precedence decisions.
 
 Exit criteria:
-- [ ] Typed/integration tests cover app API and trace output.
-- [ ] Docs include usage and expected behavior examples.
+- [x] Typed/integration tests cover app API and trace output.
+- [x] Docs include usage and expected behavior examples.
 
 ## Phase 3: Compatibility Guarantees
 
@@ -154,3 +154,80 @@ Exit criteria:
   - Tests: `go test ./providers/source/env ./config ./internal/decode`.
   - Docs: `docs/configuration.md`, `docs/architecture.md`.
 - Next: Phase 2 planning.
+
+### Checkpoint 1: Spec API Facade
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Added high-level `Spec` API with `LoadWithSpec`, `LoadTypedWithSpec`, and `NewFromSpec`.
+  - Added source-oriented `SourceSpec` and `TreeSpec` declarations.
+  - Kept low-level `Loader` API backward-compatible.
+- Evidence:
+  - Tests: `TestLoadWithSpec_ParityWithManualLoader`, `TestLoadTypedWithSpec`.
+  - Modules: `config/spec.go`, `config/spec_test.go`.
+- Next: checkpoint 2 (validation contract).
+
+### Checkpoint 2: Validation Contract Unification
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Standardized validation failure messaging with stage markers:
+    - `validate-callback`
+    - `validate-interface`
+  - Preserved sentinel compatibility with `ErrValidationFailed`.
+- Evidence:
+  - Tests: `TestLoader_ValidationContract_InterfaceStageMarker`, `TestLoadWithSpec_ValidationErrorContract`.
+  - Modules: `config/loader.go`, `config/loader_test.go`, `config/spec_test.go`.
+- Next: checkpoint 3 (trace core).
+
+### Checkpoint 3: Trace Core
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Added trace model (`Trace`, `KeyTrace`, `TraceCandidate`) and collector.
+  - Captured per-key merge provenance and final source decisions.
+  - Captured lifecycle hook execution order in trace output.
+- Evidence:
+  - Tests: `TestLoadWithSpec_TraceCapturesSourceAndHooks`.
+  - Modules: `config/trace.go`, `config/loader.go`.
+- Next: checkpoint 4 (trace surface).
+
+### Checkpoint 4: Trace Surface API
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Added `WithTrace` option for loader-based flows.
+  - Added `Spec.Trace` wiring for app-level API flows.
+  - Added traced merge path via `LoadAndMergeBindingsWithTrace`.
+- Evidence:
+  - Tests: `go test ./config` (covers loader + spec trace flows).
+  - Modules: `config/options.go`, `config/loader.go`, `config/spec.go`.
+- Next: checkpoint 5 (docs).
+
+### Checkpoint 5: Docs Update
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Documented `Spec` API usage and typed helper in configuration guide.
+  - Documented trace mode behavior and outputs.
+  - Updated architecture references for spec APIs and trace semantics.
+- Evidence:
+  - Docs: `docs/configuration.md`, `docs/architecture.md`.
+- Next: checkpoint 6 (closeout).
+
+### Checkpoint 6: Phase 2 Exit Criteria Closure
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Verified package tests across modified areas.
+  - Marked Phase 2 checklist and exit criteria complete.
+  - Recorded checkpoint evidence and next-stage handoff.
+- Evidence:
+  - Tests: `go test ./config ./providers/source/env ./internal/decode`.
+- Next: Phase 3 planning.

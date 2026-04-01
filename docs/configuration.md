@@ -15,6 +15,29 @@ loader := config.New(
 
 `Load(ctx, &target)` executes the standard staged pipeline. `LoadTyped[T](ctx, loader)` returns a typed value using the same loader configuration.
 
+## Spec-based app API
+
+For app-facing wiring, `config.Spec` can be used to declare sources and policy in one contract:
+
+```go
+trace := &config.Trace{}
+err := config.LoadWithSpec(ctx, &out, config.Spec{
+    Trees: []config.TreeSpec{
+        {Tree: map[string]any{"name": "default"}, Priority: 0},
+    },
+    Strict:     false,
+    Trace:      trace,
+    DefaultsFn: defaultsFn,
+    ValidateFn: validateFn,
+})
+```
+
+Typed helper:
+
+```go
+cfg, err := config.LoadTypedWithSpec[MyConfig](ctx, spec)
+```
+
 ## Common option areas
 
 The exact option surface evolves, but most configuration falls into:
@@ -44,6 +67,15 @@ The env source supports both inferred mapping and explicit bindings:
 - precedence between explicit and inferred env names
 - optional struct-tag extraction from `env:"A,B"` tags
 - inferred key normalization controls (dot/hyphen to underscore, uppercase inference)
+
+## Explain/trace mode
+
+Trace mode can be enabled with `WithTrace(...)` (loader) or `Spec.Trace` (spec API).
+It records:
+
+- final source/value per flattened key
+- overridden candidates per key
+- lifecycle hook execution order
 
 See [Pipeline Reference](./architecture.md#10-pipeline-reference) for ordering rules.
 

@@ -77,17 +77,20 @@ func (l *Loader) Load(ctx context.Context, out any) error {
 		return ErrDecoderRequired
 	}
 
+	traceCollector := newTraceCollector(l.options.Trace)
+
 	if ok, err := l.tryDirectDecode(ctx, out); ok {
 		if err != nil {
 			return err
 		}
-		if err := l.runPostDecodeHooks(ctx, out); err != nil {
+		if err := l.runPostDecodeHooks(ctx, out, traceCollector); err != nil {
 			return err
 		}
+		traceCollector.flush(l.options.Trace)
 		return nil
 	}
 
-	tree, err := loadAndMerge(ctx, l.sources, l.options.MergeStrategy)
+	tree, err := loadAndMerge(ctx, l.sources, l.options.MergeStrategy, traceCollector)
 	if err != nil {
 		return err
 	}
@@ -103,7 +106,11 @@ func (l *Loader) Load(ctx context.Context, out any) error {
 		return fmt.Errorf("%w: %v", ErrDecodeFailed, err)
 	}
 
-	return l.runPostDecodeHooks(ctx, out)
+	if err := l.runPostDecodeHooks(ctx, out, traceCollector); err != nil {
+		return err
+	}
+	traceCollector.flush(l.options.Trace)
+	return nil
 }
 
 // loadTreeAndDecode runs the pipeline and decodes into out; it returns the
@@ -115,7 +122,8 @@ func (l *Loader) loadTreeAndDecode(ctx context.Context, out any) (map[string]any
 	if l.options.Decoder == nil {
 		return nil, ErrDecoderRequired
 	}
-	tree, err := loadAndMerge(ctx, l.sources, l.options.MergeStrategy)
+	traceCollector := newTraceCollector(l.options.Trace)
+	tree, err := loadAndMerge(ctx, l.sources, l.options.MergeStrategy, traceCollector)
 	if err != nil {
 		return nil, err
 	}
@@ -128,30 +136,35 @@ func (l *Loader) loadTreeAndDecode(ctx context.Context, out any) (map[string]any
 	if err := l.options.Decoder.Decode(tree, out); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrDecodeFailed, err)
 	}
-	if err := l.runPostDecodeHooks(ctx, out); err != nil {
+	if err := l.runPostDecodeHooks(ctx, out, traceCollector); err != nil {
 		return nil, err
 	}
+	traceCollector.flush(l.options.Trace)
 	return tree, nil
 }
 
-func (l *Loader) runPostDecodeHooks(ctx context.Context, out any) error {
+func (l *Loader) runPostDecodeHooks(ctx context.Context, out any, tc *traceCollector) error {
 	if d, ok := out.(defaultsApplier); ok {
 		d.ApplyDefaults()
+		tc.recordHook("defaults-interface")
 	}
 	if l.options.DefaultsFn != nil {
 		if err := l.options.DefaultsFn(ctx, out); err != nil {
 			return fmt.Errorf("%w: %v", ErrDefaultsFailed, err)
 		}
+		tc.recordHook("defaults-callback")
 	}
 	if l.options.ValidateFn != nil {
 		if err := l.options.ValidateFn(ctx, out); err != nil {
-			return fmt.Errorf("%w: %v", ErrValidationFailed, err)
+			return fmt.Errorf("%w: validate-callback: %v", ErrValidationFailed, err)
 		}
+		tc.recordHook("validate-callback")
 	}
 	if l.options.Validator != nil {
 		if err := l.options.Validator.Validate(ctx, out); err != nil {
-			return fmt.Errorf("%w: %v", ErrValidationFailed, err)
+			return fmt.Errorf("%w: validate-interface: %v", ErrValidationFailed, err)
 		}
+		tc.recordHook("validate-interface")
 	}
 	return nil
 }
@@ -188,7 +201,7 @@ func (l *Loader) tryDirectDecode(ctx context.Context, out any) (bool, error) {
 // using the provided merge strategy.
 // Bindings are sorted by Priority ascending (higher priority merged last).
 // If a source has meta.Required == false and Read fails, it is treated as empty tree.
-func loadAndMerge(ctx context.Context, bindings []sourceBinding, strategy merge.Strategy) (map[string]any, error) {
+func loadAndMerge(ctx context.Context, bindings []sourceBinding, strategy merge.Strategy, tc *traceCollector) (map[string]any, error) {
 	pipelineBindings := make([]PipelineBinding, 0, len(bindings))
 	for _, b := range bindings {
 		pipelineBindings = append(pipelineBindings, PipelineBinding{
@@ -197,7 +210,7 @@ func loadAndMerge(ctx context.Context, bindings []sourceBinding, strategy merge.
 			Meta:   b.meta,
 		})
 	}
-	return LoadAndMergeBindings(ctx, pipelineBindings, strategy)
+	return LoadAndMergeBindingsWithTrace(ctx, pipelineBindings, strategy, tc)
 }
 
 // LoadAndMergeBindings reads all bindings, parses documents as needed, and merges
@@ -208,6 +221,12 @@ func loadAndMerge(ctx context.Context, bindings []sourceBinding, strategy merge.
 //   - read failures for optional sources (Meta.Required=false) are treated as empty trees
 //   - merge failures are wrapped with ErrMergeFailed
 func LoadAndMergeBindings(ctx context.Context, bindings []PipelineBinding, strategy merge.Strategy) (map[string]any, error) {
+	return LoadAndMergeBindingsWithTrace(ctx, bindings, strategy, nil)
+}
+
+// LoadAndMergeBindingsWithTrace behaves like LoadAndMergeBindings and optionally
+// captures per-key source provenance.
+func LoadAndMergeBindingsWithTrace(ctx context.Context, bindings []PipelineBinding, strategy merge.Strategy, tc *traceCollector) (map[string]any, error) {
 	merged := map[string]any{}
 
 	// Stable sort by Priority ascending so higher priority is merged last.
@@ -225,7 +244,7 @@ func LoadAndMergeBindings(ctx context.Context, bindings []PipelineBinding, strat
 	})
 
 	for _, b := range sorted {
-		tree, stage, err := readBinding(ctx, b.Source, b.Parser)
+		tree, stage, sourceName, err := readBinding(ctx, b.Source, b.Parser)
 		if err != nil {
 			if shouldIgnoreBindingError(b.Meta, stage, err) {
 				tree = map[string]any{}
@@ -238,6 +257,7 @@ func LoadAndMergeBindings(ctx context.Context, bindings []PipelineBinding, strat
 		if err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrMergeFailed, err)
 		}
+		tc.recordTree(sourceName, tree)
 	}
 
 	return merged, nil
@@ -274,33 +294,47 @@ func isNotFoundReadError(err error) bool {
 	return errors.Is(err, os.ErrNotExist)
 }
 
-func readBinding(ctx context.Context, src Source, parser Parser) (map[string]any, bindingFailureStage, error) {
+func readBinding(ctx context.Context, src Source, parser Parser) (map[string]any, bindingFailureStage, string, error) {
 	v, err := src.Read(ctx)
 	if err != nil {
-		return nil, bindingFailureRead, fmt.Errorf("%w: %w", ErrSourceReadFailed, err)
+		return nil, bindingFailureRead, sourceLabel(src, nil), fmt.Errorf("%w: %w", ErrSourceReadFailed, err)
 	}
 
 	switch doc := v.(type) {
 	case *TreeDocument:
 		if doc == nil || doc.Tree == nil {
-			return nil, bindingFailureRead, ErrInvalidDocument
+			return nil, bindingFailureRead, sourceLabel(src, nil), ErrInvalidDocument
 		}
-		return doc.Tree, bindingFailureNone, nil
+		return doc.Tree, bindingFailureNone, sourceLabel(src, doc), nil
 
 	case *Document:
 		if doc == nil {
-			return nil, bindingFailureRead, ErrInvalidDocument
+			return nil, bindingFailureRead, sourceLabel(src, nil), ErrInvalidDocument
 		}
 		if parser == nil {
-			return nil, bindingFailureParse, ErrParserRequired
+			return nil, bindingFailureParse, sourceLabel(src, doc), ErrParserRequired
 		}
 		tree, err := parser.Parse(ctx, doc)
 		if err != nil {
-			return nil, bindingFailureParse, fmt.Errorf("%w: %w", ErrParseFailed, err)
+			return nil, bindingFailureParse, sourceLabel(src, doc), fmt.Errorf("%w: %w", ErrParseFailed, err)
 		}
-		return tree, bindingFailureNone, nil
+		return tree, bindingFailureNone, sourceLabel(src, doc), nil
 
 	default:
-		return nil, bindingFailureRead, ErrInvalidDocument
+		return nil, bindingFailureRead, sourceLabel(src, nil), ErrInvalidDocument
 	}
+}
+
+func sourceLabel(src Source, doc any) string {
+	switch d := doc.(type) {
+	case *Document:
+		if d != nil && d.Name != "" {
+			return d.Name
+		}
+	case *TreeDocument:
+		if d != nil && d.Name != "" {
+			return d.Name
+		}
+	}
+	return fmt.Sprintf("%T", src)
 }

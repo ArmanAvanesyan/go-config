@@ -48,12 +48,15 @@ Primary APIs:
 
 - `(*Loader).Load(ctx, out)`
 - `LoadTyped[T](ctx, loader)`
+- `LoadWithSpec(ctx, out, spec)`
+- `LoadTypedWithSpec[T](ctx, spec)`
 
 Typed loading gives:
 
 - compile-time target typing at call sites
 - isolated loader instances (no global mutable config singleton)
 - deterministic per-call pipeline behavior
+- optional high-level app-policy declaration via `Spec`
 
 ## 3. Providers
 
@@ -239,7 +242,14 @@ flowchart LR
   4. validator interface (`WithValidator`)
 - Decode, defaults, and validate failures are wrapped with stage-specific sentinels.
 
-### 10.6 Direct decode fast path
+### 10.6 Explain/provenance trace semantics
+
+- Trace capture is optional (`WithTrace` / `Spec.Trace`).
+- Trace records flattened key candidates across source merge order.
+- Each key includes final winner source/value plus overridden candidates.
+- Trace also captures lifecycle hook execution order for debugging and migration parity.
+
+### 10.7 Direct decode fast path
 
 When `WithDirectDecode(true)` is set, a fast path can bypass tree materialization if all constraints hold:
 
@@ -250,7 +260,7 @@ When `WithDirectDecode(true)` is set, a fast path can bypass tree materializatio
 
 If constraints fail, the loader falls back to the standard pipeline.
 
-### 10.7 Typical failure map
+### 10.8 Typical failure map
 
 - missing target: `ErrNilTarget`
 - no sources: `ErrNoSources`

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/ArmanAvanesyan/go-config/providers/decoder/mapstructure"
@@ -386,5 +387,30 @@ func TestLoader_SourceMeta_MissingPolicyIgnore(t *testing.T) {
 	}
 	if cfg.Key != "ok" {
 		t.Fatalf("expected key=ok, got %q", cfg.Key)
+	}
+}
+
+type failValidator struct{}
+
+func (v *failValidator) Validate(context.Context, any) error {
+	return errors.New("validator failed")
+}
+
+func TestLoader_ValidationContract_InterfaceStageMarker(t *testing.T) {
+	t.Parallel()
+	var cfg struct {
+		Name string `json:"name"`
+	}
+	err := New(
+		WithValidator(&failValidator{}),
+	).AddSource(&testMemSource{tree: map[string]any{"name": "demo"}}).Load(context.Background(), &cfg)
+	if err == nil {
+		t.Fatal("expected validation failure")
+	}
+	if !errors.Is(err, ErrValidationFailed) {
+		t.Fatalf("expected ErrValidationFailed, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "validate-interface") {
+		t.Fatalf("expected interface stage marker, got %v", err)
 	}
 }
