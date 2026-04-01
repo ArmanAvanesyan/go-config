@@ -1,0 +1,69 @@
+{
+  "name": "multi_source_profile",
+  "description": "Priority-ordered multi-tree merge with env-inferred override.",
+  "strict": false,
+  "trees": [
+    {
+      "priority": 0,
+      "tree": {
+        "server": {
+          "host": "base.local",
+          "port": 8080
+        },
+        "feature": {
+          "enabled": false,
+          "mode": "baseline"
+        },
+        "labels": {
+          "region": "eu",
+          "owner": "platform"
+        }
+      }
+    },
+    {
+      "priority": 10,
+      "tree": {
+        "feature": {
+          "enabled": true,
+          "mode": "canary"
+        },
+        "timeouts": {
+          "request": "1500ms"
+        }
+      }
+    }
+  ],
+  "env": {
+    "priority": 15,
+    "prefix": "APP",
+    "infer": true,
+    "precedence": "inferred_first",
+    "bindings": {},
+    "vars": {
+      "APP_SERVER__HOST": "env.local"
+    }
+  },
+  "expected": {
+    "server": {
+      "host": "env.local",
+      "port": 8080,
+      "tls": false
+    },
+    "feature": {
+      "enabled": true,
+      "mode": "canary"
+    },
+    "timeouts": {
+      "request": "1.5s"
+    },
+    "labels": {
+      "region": "eu",
+      "owner": "platform"
+    }
+  },
+  "expected_trace": {
+    "server.host": "env",
+    "feature.mode": "spec-tree",
+    "timeouts.request": "spec-tree"
+  }
+}

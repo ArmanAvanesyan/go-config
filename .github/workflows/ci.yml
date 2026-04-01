@@ -162,3 +162,6 @@ jobs:
 
       - name: Run policy contract tests
         run: go test ./... -run '^TestContract_' -count=1
+
+      - name: Run compatibility parity contracts
+        run: go test ./... -run '^TestContract_Compat' -count=1

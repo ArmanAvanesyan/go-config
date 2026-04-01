@@ -1,0 +1,69 @@
+{
+  "name": "env_heavy_override_profile",
+  "description": "Env-forward profile with explicit alias precedence and numeric coercion.",
+  "strict": false,
+  "trees": [
+    {
+      "priority": 0,
+      "tree": {
+        "server": {
+          "host": "tree.default",
+          "port": 9000,
+          "tls": false
+        },
+        "feature": {
+          "enabled": false,
+          "mode": "off"
+        },
+        "timeouts": {
+          "request": "3s"
+        },
+        "labels": {
+          "channel": "stable"
+        }
+      }
+    }
+  ],
+  "env": {
+    "priority": 25,
+    "prefix": "APP",
+    "infer": true,
+    "precedence": "explicit_first",
+    "bindings": {
+      "server.host": [
+        "HOST"
+      ]
+    },
+    "vars": {
+      "APP_HOST": "explicit.alias.local",
+      "APP_SERVER__HOST": "inferred.alias.local",
+      "APP_SERVER__PORT": "9443",
+      "APP_FEATURE__ENABLED": "true",
+      "APP_FEATURE__MODE": "on",
+      "APP_TIMEOUTS__REQUEST": "750ms"
+    }
+  },
+  "expected": {
+    "server": {
+      "host": "explicit.alias.local",
+      "port": 9443,
+      "tls": false
+    },
+    "feature": {
+      "enabled": true,
+      "mode": "on"
+    },
+    "timeouts": {
+      "request": "750ms"
+    },
+    "labels": {
+      "channel": "stable"
+    }
+  },
+  "expected_trace": {
+    "server.host": "env",
+    "server.port": "env",
+    "feature.enabled": "env",
+    "labels.channel": "spec-tree"
+  }
+}

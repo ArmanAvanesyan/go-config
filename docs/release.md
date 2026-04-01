@@ -82,6 +82,7 @@ Before running the release workflow, validate:
 - `go mod tidy && git diff --exit-code`
 - `go test ./... -count=1 -race -short`
 - `go test ./... -run '^TestContract_' -count=1` (policy contract suite)
+- `go test ./... -run '^TestContract_Compat' -count=1` (consumer compatibility parity)
 - `golangci-lint run ./...`
 - `make wasm-verify-docker`
 - docs and user-facing examples are updated for any behavior/API changes
@@ -113,6 +114,31 @@ For release mistakes or critical regressions:
 4. Link incident/follow-up issue in the release notes for traceability.
 
 Prefer forward-fix patch releases over rewriting published tags.
+
+---
+
+## Compatibility Wrapper Deprecation Policy
+
+Compatibility wrappers are retired only through a documented migration window.
+
+### Support window
+
+- Minimum support window: two minor releases after deprecation notice lands on `main`.
+- During the window, wrapper behavior remains semver-stable except for critical security fixes.
+- Any behavior delta must include migration notes in release notes under `Notes`.
+
+### Migration expectations
+
+- Consumer migrations must use `go-config` native loading (`Spec`/pipeline contracts) without adapter-specific assumptions.
+- Compatibility fixture parity (`TestContract_Compat*`) must remain no-diff for maintained profiles throughout the window.
+- Regressions found during the window are tracked as blocker issues before wrapper removal is approved.
+
+### Wrapper removal go/no-go criteria
+
+- Compatibility parity has passed on maintained fixtures across repeated release-candidate runs.
+- No unresolved blocker regression remains open against compatibility scenarios.
+- Release notes include explicit migration guidance and deprecation completion note.
+- Removal aligns with semver policy and has explicit maintainer sign-off.
 
 ---
 

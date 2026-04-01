@@ -1,0 +1,63 @@
+{
+  "name": "security_strict_profile",
+  "description": "Strict typed profile with env override on host and deep-merge labels.",
+  "strict": true,
+  "trees": [
+    {
+      "priority": 0,
+      "tree": {
+        "server": {
+          "host": "base.internal",
+          "port": 443,
+          "tls": true
+        },
+        "feature": {
+          "enabled": true,
+          "mode": "locked"
+        },
+        "timeouts": {
+          "request": 2000000000
+        },
+        "labels": {
+          "tier": "critical"
+        }
+      }
+    }
+  ],
+  "env": {
+    "priority": 20,
+    "prefix": "APP",
+    "infer": true,
+    "precedence": "explicit_first",
+    "bindings": {
+      "server.host": [
+        "HOST"
+      ]
+    },
+    "vars": {
+      "APP_HOST": "secure.example.com"
+    }
+  },
+  "expected": {
+    "server": {
+      "host": "secure.example.com",
+      "port": 443,
+      "tls": true
+    },
+    "feature": {
+      "enabled": true,
+      "mode": "locked"
+    },
+    "timeouts": {
+      "request": "2s"
+    },
+    "labels": {
+      "tier": "critical"
+    }
+  },
+  "expected_trace": {
+    "server.host": "env",
+    "server.port": "spec-tree",
+    "feature.enabled": "spec-tree"
+  }
+}

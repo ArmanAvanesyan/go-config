@@ -60,9 +60,9 @@ Exit criteria:
 
 ## Phase 4: Consumer Compatibility and Deprecation Completion
 
-- [ ] Build a consumer-compatibility harness that reproduces representative downstream config outcomes using `go-config` alone (no app-specific adapter assumptions).
-- [ ] Run parity scenarios against maintained compatibility fixtures that represent key consumer configuration profiles, and record no-diff results.
-- [ ] Publish a deprecation/migration policy for compatibility wrappers (support window, expected behavior, upgrade notes), and monitor reported drift during the window.
+- [x] Build a consumer-compatibility harness that reproduces representative downstream config outcomes using `go-config` alone (no app-specific adapter assumptions).
+- [x] Run parity scenarios against maintained compatibility fixtures that represent key consumer configuration profiles, and record no-diff results.
+- [x] Publish a deprecation/migration policy for compatibility wrappers (support window, expected behavior, upgrade notes), and monitor reported drift during the window.
 - [ ] Remove compatibility wrappers only after repeated no-diff parity runs and completion of the published deprecation window.
 
 Exit criteria:
@@ -303,3 +303,49 @@ Exit criteria:
 - Evidence:
   - Tests: `go test ./... -run '^TestContract_' -count=1`; `go test ./config ./providers/source/env ./internal/decode`.
 - Next: Phase 4 planning.
+
+### Checkpoint 1: Compatibility Harness Contract
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Documented fixture-driven compatibility harness contract (input, execution, comparison).
+  - Added architecture guidance for maintained compatibility profiles and provenance checks.
+- Evidence:
+  - Docs: `docs/architecture.md`.
+- Next: checkpoint 2 (fixtures + parity scenarios).
+
+### Checkpoint 2: Compatibility Fixtures and Parity Scenarios
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Added representative compatibility fixtures for strict, multi-source, and env-heavy profiles.
+  - Implemented `TestContract_CompatParity_Fixtures` with canonical no-diff output assertions.
+  - Added trace winner assertions for selected compatibility-sensitive keys.
+- Evidence:
+  - Fixtures: `testdata/compat/security_strict_profile.json`, `testdata/compat/multi_source_profile.json`, `testdata/compat/env_heavy_override_profile.json`.
+  - Tests: `config/contract_compatibility_test.go`.
+- Next: checkpoint 3 (CI/release gating).
+
+### Checkpoint 3: CI/Release Compatibility Gate
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Added dedicated compatibility contract command in CI and release workflows.
+  - Kept general policy contract suite gate while making compatibility parity explicit.
+- Evidence:
+  - Workflows: `.github/workflows/ci.yml`, `.github/workflows/release.yml`.
+- Next: checkpoint 4 (deprecation policy).
+
+### Checkpoint 4: Deprecation and Migration Policy
+
+- Status: completed
+- Date: 2026-04-01
+- Changes:
+  - Added wrapper deprecation support window and migration expectations to release runbook.
+  - Added objective wrapper-removal go/no-go criteria and drift-monitoring expectations.
+- Evidence:
+  - Docs: `docs/release.md`.
+- Next: Phase 4 closeout criteria tracking.

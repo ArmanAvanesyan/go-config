@@ -407,3 +407,35 @@ Custom policy binaries that export this ABI can be loaded with `rustpolicy.NewFr
 - `.wasm` parser/policy artifacts are embedded and versioned in extension package directories.
 - Parser and validator engines should be closed when no longer needed.
 - YAML shared parser flow uses reference-counted reuse for hot-path performance.
+
+## 13. Compatibility harness reference
+
+Phase 4 compatibility guarantees are validated with fixture-driven contract tests in `config/contract_compatibility_test.go` and fixture inputs under `testdata/compat/`.
+
+### 13.1 Harness contract
+
+- Input model:
+  - one fixture per consumer profile (`*.json`)
+  - prioritized in-memory trees (`trees[]`)
+  - optional env overlay policy (`env.prefix`, `env.infer`, `env.precedence`, `env.bindings`, `env.vars`)
+  - expected typed projection (`expected`)
+  - expected provenance winners (`expected_trace`)
+- Execution model:
+  - tests build `config.Spec` from fixture data only
+  - config is loaded via `LoadTypedWithSpec` with `Trace` enabled
+  - no app-specific adapter hooks or wrapper-side behavior assumptions
+- Comparison model:
+  - typed output is canonicalized to a deterministic JSON snapshot
+  - parity is strict no-diff (`want` vs `got`) with a single failure format
+  - trace assertions validate final source winners for selected compatibility keys
+
+### 13.2 Maintained scenario profiles
+
+- `security_strict_profile`: strict typed profile with env alias override.
+- `multi_source_profile`: priority merge across multiple trees with env inferred override.
+- `env_heavy_override_profile`: env-forward profile with explicit-vs-inferred alias precedence.
+
+### 13.3 CI and release gate
+
+- Compatibility contracts use `TestContract_Compat_*` naming and run in contract lanes.
+- Release validation treats compatibility parity as a mandatory gate alongside policy contract tests.
